@@ -33,7 +33,10 @@ class RlsUdpTask : public NtsTask
 
   private:
     std::unique_ptr<Logger> m_logger;
-    udp::UdpServer *m_server;
+    udp::UdpServer *m_server4;
+    udp::UdpServer *m_server6;
+    bool m_serverIpv4Enabled;
+    bool m_serverIpv6Enabled;
     NtsTask *m_ctlTask;
     RlsSharedContext* m_shCtx;
     std::vector<InetAddress> m_searchSpace;

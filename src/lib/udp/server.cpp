@@ -13,8 +13,12 @@
 namespace udp
 {
 
-UdpServer::UdpServer() : socket{Socket::CreateUdp4()}
+UdpServer::UdpServer(int version)
 {
+    if (version == 6)
+        socket = Socket::CreateUdp6();
+    else
+        socket = Socket::CreateUdp4();
 }
 
 UdpServer::UdpServer(const std::string &address, uint16_t port) : socket{Socket::CreateAndBindUdp({address, port})}

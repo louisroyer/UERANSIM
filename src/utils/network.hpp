@@ -38,6 +38,7 @@ struct InetAddress
         return len;
     }
 
+    [[nodiscard]] int getIpVersion() const;
     [[nodiscard]] uint16_t getPort() const;
 };
 

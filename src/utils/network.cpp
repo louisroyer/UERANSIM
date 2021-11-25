@@ -78,7 +78,7 @@ InetAddress::InetAddress(const std::string &address, uint16_t port) : storage{},
     if (s != 0)
         throw LibError("Bad Inet address: " + address, errno);
 
-    if (result->ai_family != AF_INET && result->ai_family == AF_INET6)
+    if (result->ai_family != AF_INET && result->ai_family != AF_INET6)
     {
         freeaddrinfo(result);
         throw std::runtime_error("Bad Inet address: " + address);
@@ -87,6 +87,16 @@ InetAddress::InetAddress(const std::string &address, uint16_t port) : storage{},
     this->len = result->ai_addrlen;
     std::memcpy(&this->storage, result->ai_addr, this->len);
     freeaddrinfo(result);
+}
+
+int InetAddress::getIpVersion() const
+{
+    if (storage.ss_family == AF_INET)
+        return 4;
+    else if (storage.ss_family == AF_INET6)
+        return 6;
+    else
+        return 0;
 }
 
 InetAddress::InetAddress(const OctetString &address, uint16_t port) : InetAddress(OctetStringToIpString(address), port)

@@ -21,7 +21,7 @@ class UdpServer
     Socket socket;
 
   public:
-    UdpServer();
+    UdpServer(int version);
     UdpServer(const std::string &address, uint16_t port);
     ~UdpServer();
 

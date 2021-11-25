@@ -15,7 +15,7 @@
 
 udp::UdpServerTask::UdpServerTask(NtsTask *targetTask) : server{}, targetTask(targetTask)
 {
-    server = new UdpServer();
+    server = new UdpServer(4);
 }
 
 udp::UdpServerTask::UdpServerTask(const std::string &address, uint16_t port, NtsTask *targetTask)
