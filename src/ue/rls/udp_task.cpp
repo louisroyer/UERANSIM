@@ -25,24 +25,16 @@ namespace nr::ue
 {
 
 RlsUdpTask::RlsUdpTask(TaskBase *base, RlsSharedContext *shCtx, const std::vector<std::string> &searchSpace)
-    : m_server4{}, m_server6{}, m_serverIpv4Enabled{false}, m_serverIpv6Enabled{false}, m_ctlTask{}, m_shCtx{shCtx},
-      m_searchSpace{}, m_cells{}, m_cellIdToSti{}, m_lastLoop{}, m_cellIdCounter{}
+    : m_server{}, m_ctlTask{}, m_shCtx{shCtx}, m_searchSpace{}, m_cells{}, m_cellIdToSti{},
+    m_lastLoop{}, m_cellIdCounter{}
 {
     m_logger = base->logBase->makeUniqueLogger(base->config->getLoggerPrefix() + "rls-udp");
 
-    // Enable server on Ipv4 and/or Ipv6 depending on presence of different addresses families in searchSpace
     for (auto &ip : searchSpace)
     {
-        if ((!m_serverIpv4Enabled) && (utils::GetIpVersion(ip) == 4))
-           m_serverIpv4Enabled = true;
-        if ((!m_serverIpv6Enabled) && (utils::GetIpVersion(ip) == 6))
-           m_serverIpv6Enabled = true;
         m_searchSpace.emplace_back(ip, cons::PortalPort);
     }
-    if (m_serverIpv4Enabled)
-        m_server4 = new udp::UdpServer(4);
-    if (m_serverIpv6Enabled)
-        m_server6 = new udp::UdpServer(6);
+    m_server = new udp::UdpServer();
 
 
     m_simPos = Vector3{};
@@ -61,45 +53,23 @@ void RlsUdpTask::onLoop()
         heartbeatCycle(current, m_simPos);
     }
 
-    if (m_serverIpv4Enabled)
+    uint8_t buffer[BUFFER_SIZE];
+    InetAddress peerAddress;
+
+    int size = m_server->Receive(buffer, BUFFER_SIZE, RECEIVE_TIMEOUT, peerAddress);
+    if (size > 0)
     {
-        uint8_t buffer4[BUFFER_SIZE];
-        InetAddress peerAddress4;
-
-        int size4 = m_server4->Receive(buffer4, BUFFER_SIZE, RECEIVE_TIMEOUT, peerAddress4);
-        if (size4 > 0)
-        {
-            auto rlsMsg4 = rls::DecodeRlsMessage(OctetView{buffer4, static_cast<size_t>(size4)});
-            if (rlsMsg4 == nullptr)
-                m_logger->err("Unable to decode RLS message");
-            else
-                receiveRlsPdu(peerAddress4, std::move(rlsMsg4));
-        }
-    }
-
-    if (m_serverIpv6Enabled)
-    {
-        uint8_t buffer6[BUFFER_SIZE];
-        InetAddress peerAddress6;
-
-        int size6 = m_server6->Receive(buffer6, BUFFER_SIZE, RECEIVE_TIMEOUT, peerAddress6);
-        if (size6 > 0)
-        {
-            auto rlsMsg6 = rls::DecodeRlsMessage(OctetView{buffer6, static_cast<size_t>(size6)});
-            if (rlsMsg6 == nullptr)
-                m_logger->err("Unable to decode RLS message");
-            else
-                receiveRlsPdu(peerAddress6, std::move(rlsMsg6));
-        }
+        auto rlsMsg = rls::DecodeRlsMessage(OctetView{buffer, static_cast<size_t>(size)});
+        if (rlsMsg == nullptr)
+            m_logger->err("Unable to decode RLS message");
+        else
+            receiveRlsPdu(peerAddress, std::move(rlsMsg));
     }
 }
 
 void RlsUdpTask::onQuit()
 {
-    if (m_serverIpv4Enabled)
-        delete m_server4;
-    if (m_serverIpv6Enabled)
-        delete m_server6;
+    delete m_server;
 }
 
 void RlsUdpTask::sendRlsPdu(const InetAddress &addr, const rls::RlsMessage &msg)
@@ -107,10 +77,7 @@ void RlsUdpTask::sendRlsPdu(const InetAddress &addr, const rls::RlsMessage &msg)
     OctetString stream;
     rls::EncodeRlsMessage(msg, stream);
 
-    if ((addr.getIpVersion()== 4) && m_serverIpv4Enabled)
-        m_server4->Send(addr, stream.data(), static_cast<size_t>(stream.length()));
-    else if ((addr.getIpVersion() == 6) && m_serverIpv6Enabled)
-        m_server6->Send(addr, stream.data(), static_cast<size_t>(stream.length()));
+    m_server->Send(addr, stream.data(), static_cast<size_t>(stream.length()));
 
 }
 

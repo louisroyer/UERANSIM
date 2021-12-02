@@ -18,10 +18,11 @@ namespace udp
 class UdpServer
 {
   private:
-    Socket socket;
+    Socket socket4;
+    Socket socket6;
 
   public:
-    UdpServer(int version);
+    UdpServer();
     UdpServer(const std::string &address, uint16_t port);
     ~UdpServer();
 
