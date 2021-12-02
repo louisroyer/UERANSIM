@@ -195,7 +195,7 @@ int Socket::receive(uint8_t *buffer, size_t bufferSize, int timeoutMs, InetAddre
     return 0;
 }
 
-void Socket::send(const InetAddress &address, const uint8_t *buffer, size_t size) const
+int Socket::send(const InetAddress &address, const uint8_t *buffer, size_t size) const
 {
     ssize_t rc = sendto(fd, buffer, size, MSG_DONTWAIT, address.getSockAddr(), address.getSockLen());
     if (rc == -1)
@@ -204,6 +204,7 @@ void Socket::send(const InetAddress &address, const uint8_t *buffer, size_t size
         if (err != EAGAIN)
             throw LibError("sendto failed: ", errno);
     }
+    return rc;
 }
 
 bool Socket::hasFd() const
@@ -306,4 +307,17 @@ InetAddress Socket::getAddress() const
         throw LibError("getsockname failed: ", errno);
 
     return InetAddress(storage, len);
+}
+
+int Socket::getIpVersion() const
+{
+    int domain;
+    if (getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &domain, nullptr))
+        throw LibError("getsockopt SO_DOMAIN failed: ", errno);
+    if (domain == AF_INET6)
+        return 6;
+    else if (domain == AF_INET)
+        return 4;
+    else
+        return 0;
 }

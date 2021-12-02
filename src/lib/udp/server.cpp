@@ -14,61 +14,45 @@
 namespace udp
 {
 
-UdpServer::UdpServer(): socket4{Socket::CreateUdp4()}, socket6{Socket::CreateUdp6()},
-    isSocket4Binded{true}, isSocket6Binded{true}, socketRoundRobin{false}
+UdpServer::UdpServer(): sockets{}
 {
+    sockets.push_back(Socket::CreateUdp6());
+    sockets.push_back(Socket::CreateUdp4());
 }
 
-UdpServer::UdpServer(const std::string &address, uint16_t port) : socket4{}, socket6{},
-    isSocket4Binded{false}, isSocket6Binded{true}, socketRoundRobin{false}
+UdpServer::UdpServer(const std::string &address, uint16_t port): sockets{}
 {
-    if (utils::GetIpVersion(address) == 4)
-    {
-        socket4 = Socket::CreateAndBindUdp({address, port});
-        isSocket4Binded = true;
-    }
-    else
-    {
-        socket6 = Socket::CreateAndBindUdp({address, port});
-        isSocket6Binded = true;
-    }
-
+    sockets.push_back(Socket::CreateAndBindUdp({address, port}));
 }
 
 int UdpServer::Receive(uint8_t *buffer, size_t bufferSize, int timeoutMs, InetAddress &outPeerAddress)
 {
-    // If UdpServer has 2 sockets binded (1 on IPv4 and 1 on IPv6), timeout is halfed because we want
-    // the function to return before timeout is reached.
-    // To avoid starvation, each time this function get called the socket checked first is not the same as last time.
-    // (Starvation would have occured for the socket checked in second if the socket checked first always has a message)
-    int ret = 0;
-    Socket firstSocket = socketRoundRobin? socket4 : socket6;
-    bool isFirstSocketBinded = socketRoundRobin? isSocket4Binded : isSocket6Binded;
-    Socket secondSocket = socketRoundRobin? socket6 : socket4;
-    bool isSecondSocketBinded = socketRoundRobin? isSocket6Binded : isSocket4Binded;
-    socketRoundRobin = !socketRoundRobin;
-    if (isFirstSocketBinded)
-        ret = firstSocket.receive(buffer, bufferSize, (isSocket4Binded && isSocket6Binded) ? (timeoutMs / 2) : timeoutMs, outPeerAddress);
-    if ((!ret) && isSecondSocketBinded)
-        ret = secondSocket.receive(buffer, bufferSize, (isSocket4Binded && isSocket6Binded) ? (timeoutMs / 2) : timeoutMs, outPeerAddress);
-    return ret;
+    // Use the first socket ready for receiving data
+    // Warning: this may lead to starvation since there is no round robin implemented yet in `Socket::Select`
+    std::vector<Socket> ws;
+    return Socket::Select(sockets, ws, timeoutMs).receive(buffer, bufferSize, 0, outPeerAddress);
 }
 
-void UdpServer::Send(const InetAddress &address, const uint8_t *buffer, size_t bufferSize) const
+int UdpServer::Send(const InetAddress &address, const uint8_t *buffer, size_t bufferSize) const
 {
-
-    if ((address.getIpVersion() == 4) && isSocket4Binded)
-        socket4.send(address, buffer, bufferSize);
-    else if ((address.getIpVersion() == 6) && isSocket6Binded)
-        socket6.send(address, buffer, bufferSize);
+    int version = address.getIpVersion();
+    // invalid family
+    if (!version)
+        return -1;
+    // send on first socket matching ip version
+    for(const Socket &s : sockets)
+    {
+        if (s.getIpVersion() == version)
+            return s.send(address, buffer, bufferSize);
+    }
+    // no socket found
+    return -1;
 }
 
 UdpServer::~UdpServer()
 {
-    if (isSocket4Binded)
-        socket4.close();
-    if (isSocket6Binded)
-        socket6.close();
+    for (Socket &s : sockets)
+        s.close();
 }
 
 } // namespace udp
