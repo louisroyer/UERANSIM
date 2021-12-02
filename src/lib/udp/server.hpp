@@ -20,13 +20,16 @@ class UdpServer
   private:
     Socket socket4;
     Socket socket6;
+    bool isSocket4Binded;
+    bool isSocket6Binded;
+    bool socketRoundRobin;
 
   public:
     UdpServer();
     UdpServer(const std::string &address, uint16_t port);
     ~UdpServer();
 
-    int Receive(uint8_t *buffer, size_t bufferSize, int timeoutMs, InetAddress &outPeerAddress) const;
+    int Receive(uint8_t *buffer, size_t bufferSize, int timeoutMs, InetAddress &outPeerAddress);
     void Send(const InetAddress &address, const uint8_t *buffer, size_t bufferSize) const;
 };
 
