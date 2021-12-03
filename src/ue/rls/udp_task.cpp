@@ -25,17 +25,15 @@ namespace nr::ue
 {
 
 RlsUdpTask::RlsUdpTask(TaskBase *base, RlsSharedContext *shCtx, const std::vector<std::string> &searchSpace)
-    : m_server{}, m_ctlTask{}, m_shCtx{shCtx}, m_searchSpace{}, m_cells{}, m_cellIdToSti{},
-    m_lastLoop{}, m_cellIdCounter{}
+    : m_server{}, m_ctlTask{}, m_shCtx{shCtx}, m_searchSpace{}, m_cells{}, m_cellIdToSti{}, m_lastLoop{},
+      m_cellIdCounter{}
 {
     m_logger = base->logBase->makeUniqueLogger(base->config->getLoggerPrefix() + "rls-udp");
 
-    for (auto &ip : searchSpace)
-    {
-        m_searchSpace.emplace_back(ip, cons::PortalPort);
-    }
     m_server = new udp::UdpServer();
 
+    for (auto &ip : searchSpace)
+        m_searchSpace.emplace_back(ip, cons::PortalPort);
 
     m_simPos = Vector3{};
 }
@@ -78,7 +76,6 @@ void RlsUdpTask::sendRlsPdu(const InetAddress &addr, const rls::RlsMessage &msg)
     rls::EncodeRlsMessage(msg, stream);
 
     m_server->Send(addr, stream.data(), static_cast<size_t>(stream.length()));
-
 }
 
 void RlsUdpTask::send(int cellId, const rls::RlsMessage &msg)
