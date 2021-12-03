@@ -121,6 +121,7 @@ uint16_t InetAddress::getPort() const
 Socket::Socket(int domain, int type, int protocol)
 {
     int sd = socket(domain, type, protocol);
+    socketDomain = domain;
     if (sd < 0)
         throw LibError("Socket could not be created:", errno);
     this->fd = sd;
@@ -311,12 +312,9 @@ InetAddress Socket::getAddress() const
 
 int Socket::getIpVersion() const
 {
-    int domain;
-    if (getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &domain, nullptr))
-        throw LibError("getsockopt SO_DOMAIN failed: ", errno);
-    if (domain == AF_INET6)
+    if (socketDomain == AF_INET6)
         return 6;
-    else if (domain == AF_INET)
+    else if (socketDomain == AF_INET)
         return 4;
     else
         return 0;

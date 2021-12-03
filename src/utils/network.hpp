@@ -46,6 +46,7 @@ class Socket
 {
   private:
     int fd;
+    int socketDomain;
 
   public:
     Socket();
