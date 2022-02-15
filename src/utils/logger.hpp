@@ -40,65 +40,65 @@ class Logger
     template <typename... Args>
     inline void debug(const std::string &fmt, Args &&...args)
     {
-        log(Severity::DEBUG, fmt, args...);
+        log(Severity::DEBUG, fmt.c_str(), args...);
     }
 
     inline void debug(const std::string &fmt)
     {
-        log(Severity::DEBUG, fmt);
+        log(Severity::DEBUG, "%s", fmt.c_str());
     }
 
     template <typename... Args>
     inline void info(const std::string &fmt, Args &&...args)
     {
-        log(Severity::INFO, fmt, args...);
+        log(Severity::INFO, fmt.c_str(), args...);
     }
 
     inline void info(const std::string &fmt)
     {
-        log(Severity::INFO, fmt);
+        log(Severity::INFO, "%s", fmt.c_str());
     }
 
     template <typename... Args>
     inline void warn(const std::string &fmt, Args &&...args)
     {
-        log(Severity::WARN, fmt, args...);
+        log(Severity::WARN, fmt.c_str(), args...);
     }
 
     inline void warn(const std::string &fmt)
     {
-        log(Severity::WARN, fmt);
+        log(Severity::WARN, "%s", fmt.c_str());
     }
 
     template <typename... Args>
     inline void err(const std::string &fmt, Args &&...args)
     {
-        log(Severity::ERR, fmt, args...);
+        log(Severity::ERR, fmt.c_str(), args...);
     }
 
     inline void err(const std::string &fmt)
     {
-        log(Severity::ERR, fmt);
+        log(Severity::ERR, "%s", fmt.c_str());
     }
 
     template <typename... Args>
     inline void fatal(const std::string &fmt, Args &&...args)
     {
-        log(Severity::FATAL, fmt, args...);
+        log(Severity::FATAL, fmt.c_str(), args...);
     }
 
     inline void fatal(const std::string &fmt)
     {
-        log(Severity::FATAL, fmt);
+        log(Severity::FATAL, "%s", fmt.c_str());
     }
 
     template <typename... Args>
-    inline void log(Severity severity, const std::string &fmt, Args &&...args)
+    inline void log(Severity severity, const char * fmt, Args &&...args)
     {
-        int size = snprintf(nullptr, 0, fmt.c_str(), args...);
+        int size = snprintf(nullptr, 0, fmt, args...);
         std::string res;
         res.resize(size);
-        snprintf(&res[0], size + 1, fmt.c_str(), args...);
+        snprintf(&res[0], size + 1, fmt, args...);
         logImpl(severity, res);
     }
 
