@@ -217,6 +217,8 @@ void NgapTask::receiveNgSetupFailure(int amfId, ASN_NGAP_NGSetupFailure *msg)
         m_logger->err("NG Setup procedure is failed.");
 }
 
+
+
 void NgapTask::receiveErrorIndication(int amfId, ASN_NGAP_ErrorIndication *msg)
 {
     auto *amf = findAmfContext(amfId);
@@ -357,5 +359,4 @@ void NgapTask::receiveOverloadStop(int amfId, ASN_NGAP_OverloadStop *msg)
 
     // TODO
 }
-
 } // namespace nr::gnb

@@ -50,7 +50,7 @@ void NgapTask::onLoop()
 
     switch (msg->msgType)
     {
-    case NtsMessageType::GNB_RRC_TO_NGAP: {
+    case NtsMessageType::GNB_RRC_TO_NGAP: { // ue -> gnb
         auto &w = dynamic_cast<NmGnbRrcToNgap &>(*msg);
         switch (w.present)
         {
@@ -69,14 +69,14 @@ void NgapTask::onLoop()
         }
         break;
     }
-    case NtsMessageType::GNB_SCTP: {
+    case NtsMessageType::GNB_SCTP: { //amf -> gnb (100 % )
         auto &w = dynamic_cast<NmGnbSctp &>(*msg);
         switch (w.present)
         {
         case NmGnbSctp::ASSOCIATION_SETUP:
             handleAssociationSetup(w.clientId, w.associationId, w.inStreams, w.outStreams);
             break;
-        case NmGnbSctp::RECEIVE_MESSAGE:
+        case NmGnbSctp::RECEIVE_MESSAGE: // à utiliser
             handleSctpMessage(w.clientId, w.stream, w.buffer);
             break;
         case NmGnbSctp::ASSOCIATION_SHUTDOWN:

@@ -25,6 +25,7 @@
 #include <asn/ngap/ASN_NGAP_UnsuccessfulOutcome.h>
 #include <asn/ngap/ASN_NGAP_UserLocationInformation.h>
 #include <asn/ngap/ASN_NGAP_UserLocationInformationNR.h>
+#include <asn/ngap/ASN_NGAP_HandoverCommand.h> 
 
 static e_ASN_NGAP_Criticality FindCriticalityOfUserIe(ASN_NGAP_NGAP_PDU *pdu, ASN_NGAP_ProtocolIE_ID_t ieId)
 {
@@ -292,6 +293,10 @@ void NgapTask::handleSctpMessage(int amfId, uint16_t stream, const UniqueBuffer 
         case ASN_NGAP_InitiatingMessage__value_PR_Paging:
             receivePaging(amf->ctxId, &value.choice.Paging);
             break;
+        case ASN_NGAP_InitiatingMessage__value_PR_HandoverRequest:
+            receiveHandoverRequest(amf->ctxId, &value.choice.HandoverRequest); // TODO
+            break;
+        
         default:
             m_logger->err("Unhandled NGAP initiating-message received (%d)", value.present);
             break;
@@ -315,14 +320,22 @@ void NgapTask::handleSctpMessage(int amfId, uint16_t stream, const UniqueBuffer 
         auto value = pdu->choice.unsuccessfulOutcome->value;
         switch (value.present)
         {
+  
         case ASN_NGAP_UnsuccessfulOutcome__value_PR_NGSetupFailure:
             receiveNgSetupFailure(amf->ctxId, &value.choice.NGSetupFailure);
+            break;
+        case ASN_NGAP_UnsuccessfulOutcome__value_PR_HandoverPreparationFailure:
+            receiveHandoverPreparationFailure (&value.choice.HandoverPreparationFailure);
+            break;
+        case ASN_NGAP_UnsuccessfulOutcome__value_PR_PathSwitchRequestFailure :
+            receivePathSwitchRequestFailure ();
             break;
         default:
             m_logger->err("Unhandled NGAP unsuccessful-outcome received (%d)", value.present);
             break;
         }
     }
+
     else
     {
         m_logger->warn("Empty NGAP PDU ignored");

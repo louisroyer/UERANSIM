@@ -34,6 +34,10 @@ extern "C"
     struct ASN_NGAP_OverloadStop;
     struct ASN_NGAP_PDUSessionResourceReleaseCommand;
     struct ASN_NGAP_Paging;
+    struct ASN_NGAP_HandoverRequired;
+    struct ASN_NGAP_HandoverPreparationFailure; 
+    struct ASN_NGAP_HandoverRequest;
+    struct ASN_NGAP_PathSwitchRequestFailure; 
 }
 
 namespace nr::gnb
@@ -91,6 +95,8 @@ class NgapTask : public NtsTask
     void receiveOverloadStart(int amfId, ASN_NGAP_OverloadStart *msg);
     void receiveOverloadStop(int amfId, ASN_NGAP_OverloadStop *msg);
 
+    
+
     /* Message transport */
     void sendNgapNonUe(int amfId, ASN_NGAP_NGAP_PDU *pdu);
     void sendNgapUeAssociated(int ueId, ASN_NGAP_NGAP_PDU *pdu);
@@ -124,6 +130,16 @@ class NgapTask : public NtsTask
     /* Radio resource control */
     void handleRadioLinkFailure(int ueId);
     void receivePaging(int amfId, ASN_NGAP_Paging *msg);
+
+        /* UE Handover management */
+    void sendHandoverRequired(int ueId,int gnbTargetId);
+    void receiveHandoverRequest (int amfId, ASN_NGAP_HandoverRequest *msg);
+    void receiveHandoverCommand (int amfId);
+    void receiveHandoverConfirm (int amfId);
+    void sendHandoverNotify(int amfId);
+    void receiveHandoverPreparationFailure  ( ASN_NGAP_HandoverPreparationFailure *msg);
+    void receivePathSwitchRequestFailure ();
+
 };
 
 } // namespace nr::gnb

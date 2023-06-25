@@ -91,6 +91,11 @@ static std::optional<opt::OptionsResult> ParseCliCommandCommon(OrderedMap<std::s
         output = DumpCommands(cmdEntries);
         return std::nullopt;
     }
+    if (subCmd == "help")
+    {
+        output = DumpCommands(cmdEntries);
+        return std::nullopt;
+    }
 
     if (cmdEntries.count(subCmd) == 0)
     {
@@ -152,6 +157,7 @@ static OrderedMap<std::string, CmdEntry> g_gnbCmdEntries = {
     {"ue-list", {"List all UEs associated with the gNB", "", DefaultDesc, false}},
     {"ue-count", {"Print the total number of UEs connected the this gNB", "", DefaultDesc, false}},
     {"ue-release", {"Request a UE context release for the given UE", "<ue-id>", DefaultDesc, false}},
+    {"handover", {"Trigger Handover procedure on given NG-RAN ID for a specific UE", "<gnb-id> <ue-id>", DefaultDesc, false} },
 };
 
 static OrderedMap<std::string, CmdEntry> g_ueCmdEntries = {
@@ -167,7 +173,7 @@ static OrderedMap<std::string, CmdEntry> g_ueCmdEntries = {
     {"ps-release-all", {"Trigger PDU session release procedures for all active sessions", "", DefaultDesc, false}},
     {"deregister",
      {"Perform a de-registration by the UE", "<normal|disable-5g|switch-off|remove-sim>", DefaultDesc, true}},
-};
+} ;
 
 static std::unique_ptr<GnbCliCommand> GnbCliParseImpl(const std::string &subCmd, const opt::OptionsResult &options,
                                                       std::string &error)
@@ -214,6 +220,22 @@ static std::unique_ptr<GnbCliCommand> GnbCliParseImpl(const std::string &subCmd,
         cmd->ueId = utils::ParseInt(options.getPositional(0));
         if (cmd->ueId <= 0)
             CMD_ERR("Invalid UE ID")
+        return cmd;
+    }
+
+    else if (subCmd == "handover")
+    {
+        auto cmd = std::make_unique<GnbCliCommand>(GnbCliCommand::HANDOVER);
+        if (options.positionalCount() == 0)
+            CMD_ERR(" TARGET-GNB ID and UE ID are expected")
+        if (options.positionalCount() > 2)
+            CMD_ERR("Only one TARGET-GNB ID and UE ID are expected")
+        cmd->gnbId = utils::ParseInt(options.getPositional(0));
+        cmd->ueId = utils::ParseInt(options.getPositional(1));
+        if (cmd->gnbId <= 0)
+            CMD_ERR("Invalid GNB ID")
+        else if (cmd -> ueId <=0 )
+             CMD_ERR("Invalid UE ID")
         return cmd;
     }
 

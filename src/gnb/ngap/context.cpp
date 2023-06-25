@@ -53,6 +53,7 @@
 #include <asn/ngap/ASN_NGAP_UEContextReleaseComplete.h>
 #include <asn/ngap/ASN_NGAP_UEContextReleaseRequest.h>
 
+
 namespace nr::gnb
 {
 
@@ -319,6 +320,6 @@ void NgapTask::sendContextRelease(int ueId, NgapCause cause)
 
     auto *pdu = asn::ngap::NewMessagePdu<ASN_NGAP_UEContextReleaseRequest>(ies);
     sendNgapUeAssociated(ueId, pdu);
-}
+} 
 
 } // namespace nr::gnb
