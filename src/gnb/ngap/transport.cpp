@@ -294,7 +294,7 @@ void NgapTask::handleSctpMessage(int amfId, uint16_t stream, const UniqueBuffer 
             receivePaging(amf->ctxId, &value.choice.Paging);
             break;
         case ASN_NGAP_InitiatingMessage__value_PR_HandoverRequest:
-            receiveHandoverRequest(amf->ctxId, &value.choice.HandoverRequest); // TODO
+            receiveHandoverRequest(amf->ctxId, &value.choice.HandoverRequest); 
             break;
         
         default:
@@ -309,6 +309,9 @@ void NgapTask::handleSctpMessage(int amfId, uint16_t stream, const UniqueBuffer 
         {
         case ASN_NGAP_SuccessfulOutcome__value_PR_NGSetupResponse:
             receiveNgSetupResponse(amf->ctxId, &value.choice.NGSetupResponse);
+            break;
+        case ASN_NGAP_SuccessfulOutcome__value_PR_HandoverCommand:
+            receiveHandoverCommand(amf->ctxId, &value.choice.HandoverCommand);
             break;
         default:
             m_logger->err("Unhandled NGAP successful-outcome received (%d)", value.present);

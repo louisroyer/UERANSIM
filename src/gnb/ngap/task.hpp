@@ -37,6 +37,7 @@ extern "C"
     struct ASN_NGAP_HandoverRequired;
     struct ASN_NGAP_HandoverPreparationFailure; 
     struct ASN_NGAP_HandoverRequest;
+    struct ASN_NGAP_HandoverCommand;
     struct ASN_NGAP_PathSwitchRequestFailure; 
 }
 
@@ -134,7 +135,7 @@ class NgapTask : public NtsTask
         /* UE Handover management */
     void sendHandoverRequired(int ueId,int gnbTargetId);
     void receiveHandoverRequest (int amfId, ASN_NGAP_HandoverRequest *msg);
-    void receiveHandoverCommand (int amfId);
+    void receiveHandoverCommand (int amfId,ASN_NGAP_HandoverCommand * msg);
     void receiveHandoverConfirm (int amfId);
     void sendHandoverNotify(int amfId);
     void receiveHandoverPreparationFailure  ( ASN_NGAP_HandoverPreparationFailure *msg);

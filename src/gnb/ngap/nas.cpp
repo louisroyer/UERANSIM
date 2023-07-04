@@ -92,7 +92,7 @@ void NgapTask::handleInitialNasTransport(int ueId, const OctetString &nasPdu, in
     }
 
     auto *pdu = asn::ngap::NewMessagePdu<ASN_NGAP_InitialUEMessage>(ies);
-    sendNgapUeAssociated(ueId, pdu); // utile
+    sendNgapUeAssociated(ueId, pdu); 
 }
 
 void NgapTask::deliverDownlinkNas(int ueId, OctetString &&nasPdu)
