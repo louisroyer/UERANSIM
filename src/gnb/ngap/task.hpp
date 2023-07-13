@@ -136,8 +136,8 @@ class NgapTask : public NtsTask
     void sendHandoverRequired(int ueId,int gnbTargetId);
     void receiveHandoverRequest (int amfId, ASN_NGAP_HandoverRequest *msg);
     void receiveHandoverCommand (int amfId,ASN_NGAP_HandoverCommand * msg);
-    void receiveHandoverConfirm (int amfId);
-    void sendHandoverNotify(int amfId);
+    void handleHandoverConfirm (int ueId);
+    void sendHandoverNotify(int ueId);
     void receiveHandoverPreparationFailure  ( ASN_NGAP_HandoverPreparationFailure *msg);
     void receivePathSwitchRequestFailure ();
 

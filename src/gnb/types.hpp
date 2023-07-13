@@ -337,6 +337,7 @@ struct TaskBase
     LogBase *logBase{};
     app::INodeListener *nodeListener{};
     NtsTask *cliCallbackTask{};
+    int gnbId; // a supprimer
 
     GnbAppTask *appTask{};
     GtpTask *gtpTask{};

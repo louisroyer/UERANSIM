@@ -62,21 +62,28 @@ void NgapTask::onLoop()
             handleUplinkNasTransport(w.ueId, w.pdu);
             break;
         }
+
+        case NmGnbRrcToNgap::HANDOVER_CONFIRM: { // rajouté
+            handleHandoverConfirm(w.ueId);
+            break;
+        }
+
         case NmGnbRrcToNgap::RADIO_LINK_FAILURE: {
             handleRadioLinkFailure(w.ueId);
             break;
         }
+
         }
         break;
     }
-    case NtsMessageType::GNB_SCTP: { //amf -> gnb (100 % )
+    case NtsMessageType::GNB_SCTP: { //amf -> gnb 
         auto &w = dynamic_cast<NmGnbSctp &>(*msg);
         switch (w.present)
         {
         case NmGnbSctp::ASSOCIATION_SETUP:
             handleAssociationSetup(w.clientId, w.associationId, w.inStreams, w.outStreams);
             break;
-        case NmGnbSctp::RECEIVE_MESSAGE: // à utiliser
+        case NmGnbSctp::RECEIVE_MESSAGE: 
             handleSctpMessage(w.clientId, w.stream, w.buffer);
             break;
         case NmGnbSctp::ASSOCIATION_SHUTDOWN:

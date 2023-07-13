@@ -19,6 +19,9 @@
 #include <asn/rrc/ASN_RRC_RRCSetupComplete.h>
 #include <asn/rrc/ASN_RRC_RRCSetupRequest-IEs.h>
 #include <asn/rrc/ASN_RRC_RRCSetupRequest.h>
+#include <asn/rrc/ASN_RRC_RRCReconfiguration.h>
+#include <asn/rrc/ASN_RRC_RRCReconfiguration-IEs.h>
+
 
 namespace nr::ue
 {
@@ -148,6 +151,21 @@ void UeRrcTask::receiveRrcRelease(const ASN_RRC_RRCRelease &msg)
     m_logger->debug("RRC Release received");
     m_state = ERrcState::RRC_IDLE;
     m_base->nasTask->push(std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::RRC_CONNECTION_RELEASE));
+}
+
+void UeRrcTask::receiveRrcReconfiguration(const ASN_RRC_RRCReconfiguration &msg) // for handover
+{
+    //OctetString infos = asn::GetOctetString(*(msg.criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup));
+    //int cellId = infos.get2I(0);
+    //auto cellId= static_cast<int32_t>(asn::GetOctet4(*(msg.criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup) ));
+    //m_logger->debug("cellId[%d]",cellId);
+    auto cellId = 2 ;
+
+    m_logger->debug("RRC Handover Command received");
+    m_state = ERrcState::RRC_IDLE; // à vérifier
+    // supprimer le handler au niveau de la task nas 
+    perfomCellChange(cellId);
+    m_base->nasTask->push(std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::RRC_HANDOVER_COMMAND));
 }
 
 void UeRrcTask::handleEstablishmentFailure()

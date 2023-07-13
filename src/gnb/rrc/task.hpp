@@ -17,6 +17,11 @@
 #include <utils/logger.hpp>
 #include <utils/nts.hpp>
 
+
+
+
+
+
 extern "C"
 {
     struct ASN_RRC_BCCH_BCH_Message;
@@ -30,6 +35,7 @@ extern "C"
 
     struct ASN_RRC_RRCSetupRequest;
     struct ASN_RRC_RRCSetupComplete;
+    struct ASN_RRC_RRCReconfigurationComplete;
     struct ASN_RRC_ULInformationTransfer;
 }
 
@@ -76,6 +82,10 @@ class GnbRrcTask : public NtsTask
     void handleRadioLinkFailure(int ueId);
     void handlePaging(const asn::Unique<ASN_NGAP_FiveG_S_TMSI> &tmsi,
                       const asn::Unique<ASN_NGAP_TAIListForPaging> &taiList);
+
+    /* Handlers for RCC handover message */ 
+    void handleHandoverCommand(int ueId);
+    void receiveRrcHandoverConfirm(int ueId, const ASN_RRC_RRCReconfigurationComplete &msg);
 
     void receiveUplinkInformationTransfer(int ueId, const ASN_RRC_ULInformationTransfer &msg);
 

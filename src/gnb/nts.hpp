@@ -166,6 +166,7 @@ struct NmGnbNgapToRrc : NtsMessage
         NAS_DELIVERY,
         AN_RELEASE,
         PAGING,
+        HANDOVER, // rajouté
     } present;
 
     // NAS_DELIVERY
@@ -190,7 +191,8 @@ struct NmGnbRrcToNgap : NtsMessage
     {
         INITIAL_NAS_DELIVERY,
         UPLINK_NAS_DELIVERY,
-        RADIO_LINK_FAILURE
+        HANDOVER_CONFIRM,
+        RADIO_LINK_FAILURE,
     } present;
 
     // INITIAL_NAS_DELIVERY

@@ -21,7 +21,7 @@ NasTask::NasTask(TaskBase *base) : base{base}, timers{}
 {
     logger = base->logBase->makeUniqueLogger(base->config->getLoggerPrefix() + "nas");
 
-    mm = new NasMm(base, &timers);
+    mm = new NasMm(base, &timers); // à voir
     sm = new NasSm(base, &timers);
     usim = new Usim();
 }

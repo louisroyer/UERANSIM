@@ -68,6 +68,7 @@ struct NmUeRrcToNas : NtsMessage
         NAS_DELIVERY,
         RRC_CONNECTION_SETUP,
         RRC_CONNECTION_RELEASE,
+        RRC_HANDOVER_COMMAND,
         RRC_ESTABLISHMENT_FAILURE,
         RADIO_LINK_FAILURE,
         PAGING,

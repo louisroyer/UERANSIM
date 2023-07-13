@@ -57,6 +57,7 @@ void NasMm::performPlmnSelection()
 
     std::unordered_set<Plmn> plmns = m_base->shCtx.availablePlmns.get();
 
+
     if (!m_usim->isValid() || plmns.empty())
     {
         if (logFailures)
@@ -213,6 +214,13 @@ void NasMm::handleRrcConnectionRelease()
     // TODO
     switchCmState(ECmState::CM_IDLE);
 }
+
+  void NasMm ::handleRrcHandoverCommand()
+  {
+    //TODO
+    switchCmState(ECmState::CM_IDLE);
+  }
+
 
 void NasMm::handleRrcEstablishmentFailure()
 {
