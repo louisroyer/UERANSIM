@@ -159,7 +159,6 @@ void GnbCmdHandler::handleCmdImpl(NmGnbCliCommand &msg)
         case app::GnbCliCommand::HANDOVER:{
             m_base -> ngapTask -> sendHandoverRequired (msg.cmd->ueId,msg.cmd->gnbId);
             std::string res = "Requesting Handover procedure for UE["+ std::to_string(msg.cmd->ueId) + "] on NG-RAN-ID: " + std::to_string(msg.cmd->gnbId);
-            m_base->gnbId =  msg.cmd->gnbId;
             sendResult(msg.address,res);
             break;    
             }

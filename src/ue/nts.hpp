@@ -142,6 +142,7 @@ struct NmUeRrcToRrc : NtsMessage
     enum PR
     {
         TRIGGER_CYCLE,
+        HANDOVER_CONFIRM,
     } present;
 
     explicit NmUeRrcToRrc(PR present) : NtsMessage(NtsMessageType::UE_RRC_TO_RRC), present(present)

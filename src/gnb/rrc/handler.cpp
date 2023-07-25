@@ -139,9 +139,9 @@ void GnbRrcTask::handlePaging(const asn::Unique<ASN_NGAP_FiveG_S_TMSI> &tmsi,
     sendRrcMessage(pdu);
     asn::Free(asn_DEF_ASN_RRC_PCCH_Message, pdu);
 }
-void GnbRrcTask::handleHandoverCommand(int ueId)
+void GnbRrcTask::handleHandoverCommand(int ueId,int targetGnbId)
 {
-    m_logger->debug("Sending RRC Handover Command for UE[%d]", ueId); // modifier le logger debug par info
+    m_logger->debug("Sending RRC Handover Command for UE[%d]", ueId);
     // Send RRC Handover Command message
     auto *pdu = asn::New<ASN_RRC_DL_DCCH_Message>();
     pdu->message.present = ASN_RRC_DL_DCCH_MessageType_PR_c1;
@@ -152,14 +152,14 @@ void GnbRrcTask::handleHandoverCommand(int ueId)
     rrcReconfiguration->criticalExtensions.present = ASN_RRC_RRCReconfiguration__criticalExtensions_PR_rrcReconfiguration;
     rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration = asn::New<ASN_RRC_RRCReconfiguration_IEs>(); // voir comment remplir cet Ie
     rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup = asn::New<OCTET_STRING>();
-    asn::SetOctetString1(* (rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup),m_base->gnbId);
+    asn::SetOctetString1(* (rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup),targetGnbId);
     sendRrcMessage(ueId, pdu);
     asn::Free(asn_DEF_ASN_RRC_DL_DCCH_Message, pdu);
 }
 
 
 void GnbRrcTask::receiveRrcHandoverConfirm(int ueId, const ASN_RRC_RRCReconfigurationComplete &msg){
-    // TODO (par rapport à la reception du message)
+    m_logger->debug("Handover Confirm message received from Ue [%d]  ",ueId );
     auto w = std::make_unique<NmGnbRrcToNgap>(NmGnbRrcToNgap::HANDOVER_CONFIRM);
     w->ueId = ueId;
     m_base->ngapTask->push(std::move(w));

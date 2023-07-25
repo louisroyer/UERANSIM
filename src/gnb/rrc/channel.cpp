@@ -190,8 +190,10 @@ void GnbRrcTask::receiveRrcMessage(int ueId, ASN_RRC_UL_DCCH_Message *msg)
     case ASN_RRC_UL_DCCH_MessageType__c1_PR_measurementReport:
         break; // TODO
     case ASN_RRC_UL_DCCH_MessageType__c1_PR_rrcReconfigurationComplete:
+        // TODO 
+        //(used for handover confirm message)
         receiveRrcHandoverConfirm(ueId, *c1->choice.rrcReconfigurationComplete);
-         break; // TODO (used for handover confirm message)
+         break; 
     case ASN_RRC_UL_DCCH_MessageType__c1_PR_rrcSetupComplete:
         receiveRrcSetupComplete(ueId, *c1->choice.rrcSetupComplete);
         break;

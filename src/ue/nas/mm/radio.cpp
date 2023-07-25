@@ -219,6 +219,9 @@ void NasMm::handleRrcConnectionRelease()
   {
     //TODO
     switchCmState(ECmState::CM_IDLE);
+    switchMmState(EMmSubState::MM_REGISTERED_UPDATE_NEEDED);
+    mobilityUpdatingRequired(ERegUpdateCause::EMERGENCY_CASE);
+    //initialRegistrationRequired(EInitialRegCause::DUE_TO_DEREGISTRATION);
   }
 
 

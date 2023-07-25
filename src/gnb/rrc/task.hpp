@@ -84,7 +84,7 @@ class GnbRrcTask : public NtsTask
                       const asn::Unique<ASN_NGAP_TAIListForPaging> &taiList);
 
     /* Handlers for RCC handover message */ 
-    void handleHandoverCommand(int ueId);
+    void handleHandoverCommand(int ueId,int targetGnbId);
     void receiveRrcHandoverConfirm(int ueId, const ASN_RRC_RRCReconfigurationComplete &msg);
 
     void receiveUplinkInformationTransfer(int ueId, const ASN_RRC_ULInformationTransfer &msg);

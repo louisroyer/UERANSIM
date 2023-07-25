@@ -34,7 +34,7 @@ void NgapTask::handleInitialNasTransport(int ueId, const OctetString &nasPdu, in
         m_logger->err("UE context[%d] already exists", ueId);
         return;
     }
-
+    
     createUeContext(ueId);
 
     auto *ueCtx = findUeContext(ueId);

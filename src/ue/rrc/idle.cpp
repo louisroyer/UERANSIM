@@ -112,16 +112,8 @@ void UeRrcTask::performCellSelection()
 
 
 void UeRrcTask::perfomCellChange(int newCellId){ // no suitable and acceptable verifications check
-{
-    int64_t currentTime = utils::CurrentTimeMillis();
-
-    if (currentTime - m_startedTime <= 1000LL && m_cellDesc.empty())
-        return;
-    if (currentTime - m_startedTime <= 4000LL && !m_base->shCtx.selectedPlmn.get().hasValue())
-        return;
 
     auto lastCell = m_base->shCtx.currentCell.get();
-
 
     if (newCellId !=0  &&  m_cellDesc.count(newCellId)!=0 && newCellId != lastCell.cellId  )
     {
@@ -132,7 +124,7 @@ void UeRrcTask::perfomCellChange(int newCellId){ // no suitable and acceptable v
         cellInfo.tac = handoverCell.sib1.tac;
         if (isSuitable(handoverCell))
             cellInfo.category = ECellCategory::SUITABLE_CELL;
-        if (isAcceptable(handoverCell))
+        else if (isAcceptable(handoverCell))
             cellInfo.category = ECellCategory::ACCEPTABLE_CELL;
         else
         {
@@ -140,22 +132,33 @@ void UeRrcTask::perfomCellChange(int newCellId){ // no suitable and acceptable v
             return; 
         }
 
-
         m_base->shCtx.currentCell.set(cellInfo);
 
         m_logger->info("Selected new cell plmn[%s] tac[%d] category[%s]", ToJson(cellInfo.plmn).str().c_str(), cellInfo.tac,
                        ToJson(cellInfo.category).str().c_str());
 
-    auto w1 = std::make_unique<NmUeRrcToRls>(NmUeRrcToRls::ASSIGN_CURRENT_CELL);
-    w1->cellId = newCellId;
-    m_base->rlsTask->push(std::move(w1));
+    
+        m_logger->debug("Cell[%d] found",m_base->shCtx.currentCell.get<int>([](auto &item) { return item.cellId; }));
 
-    auto w2 = std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::ACTIVE_CELL_CHANGED);
-    w2->previousTai = Tai{lastCell.plmn, lastCell.tac};
-    m_base->nasTask->push(std::move(w2));
+        // notify other tasks
 
+        m_state = ERrcState::RRC_IDLE;
+        auto w1 = std::make_unique<NmUeRrcToRls>(NmUeRrcToRls::ASSIGN_CURRENT_CELL);
+        w1->cellId = newCellId;
+        m_base->rlsTask->push(std::move(w1));
+
+        m_base->nasTask->push(std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::RRC_HANDOVER_COMMAND));  
+
+        /*
+            auto w2 = std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::ACTIVE_CELL_CHANGED);
+            w2->previousTai = Tai{lastCell.plmn, lastCell.tac};
+            m_base->nasTask->push(std::move(w2));
+        */
+
+
+        // Sending handover Confirm Message
+        m_base->rrcTask->push(std::make_unique<NmUeRrcToRrc>(NmUeRrcToRrc::HANDOVER_CONFIRM));
     }   
-}
 }
 
 bool UeRrcTask :: isSuitable(UeCellDesc & cell)

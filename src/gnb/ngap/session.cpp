@@ -234,7 +234,6 @@ std::optional<NgapCause> NgapTask::setupPduSessionResource(NgapUeContext *ue, Pd
     }
 
     std::string gtpIp = m_base->config->gtpAdvertiseIp.value_or(m_base->config->gtpIp);
-
     resource->downTunnel.address = utils::IpToOctetString(gtpIp);
     resource->downTunnel.teid = ++m_downlinkTeidCounter;
 

@@ -145,6 +145,7 @@ class UeRrcTask : public NtsTask
     void perfomCellChange(int newCellId);
     bool isSuitable(UeCellDesc & cell);
     bool isAcceptable(UeCellDesc & cell);
+    void sendHandoverConfirmMessage();
 
 };
 

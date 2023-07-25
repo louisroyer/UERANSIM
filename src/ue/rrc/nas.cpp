@@ -31,7 +31,7 @@ void UeRrcTask::deliverUplinkNas(uint32_t pduId, OctetString &&nasPdu)
     if (nasPdu.length() == 0)
         return;
 
-    if (m_state == ERrcState::RRC_IDLE)
+    if (m_state == ERrcState::RRC_IDLE )
     {
         startConnectionEstablishment(std::move(nasPdu));
         return;

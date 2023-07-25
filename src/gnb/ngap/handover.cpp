@@ -15,13 +15,14 @@
 #include <asn/ngap/ASN_NGAP_PDUSessionResourceItemHORqd.h>
 #include <gnb/gtp/task.hpp>
 
-
-/*sourceToTargetTransparentContainer
 #include <asn/ngap/ASN_NGAP_SourceToTarget-TransparentContainer.h>
-#include <asn/ngap/ASN_NGAP_SourceNGRANNode-ToTargetNGRANNode-TransparentContainer.h>
-#include <asn/rrc/ASN_RRC_HandoverPreparationInformation.h>
-#include <asn/rrc/ASN_RRC_HandoverPreparationInformation-IEs.h>
- end sourceToTargetTransparentContainer */
+
+
+/* sourceToTargetTransparentContainer
+  #include <asn/ngap/ASN_NGAP_SourceNGRANNode-ToTargetNGRANNode-TransparentContainer.h>
+  #include <asn/rrc/ASN_RRC_HandoverPreparationInformation.h>
+  #include <asn/rrc/ASN_RRC_HandoverPreparationInformation-IEs.h> 
+*/
 
 #include <asn/ngap/ASN_NGAP_ErrorIndication.h>
 #include <asn/ngap/ASN_NGAP_ProtocolIE-Field.h>
@@ -42,7 +43,6 @@
 #include <asn/ngap/ASN_NGAP_QosFlowSetupRequestItem.h>
 
 #include <asn/ngap/ASN_NGAP_HandoverNotify.h>
-#include <asn/ngap/ASN_NGAP_UserLocationInformation.h>
 
 
 
@@ -53,10 +53,10 @@ namespace nr::gnb
 // Handover establishment messages
   void NgapTask::sendHandoverRequired(int ueId,int gnbTargetID)
 {
-    m_logger->debug("Current GNB-ID : [%d] ",m_base -> config -> getGnbId() );
+    //m_logger->debug("Current GNB-ID : [%d] ",m_base -> config -> getGnbId() );
     m_logger->debug("Sending Handover Required request ");
 
-    auto *ueCtx = findUeContext (ueId);
+    auto *ueCtx = findUeByRanId(ueId);
     if (ueCtx == nullptr)
         return;
 
@@ -144,11 +144,10 @@ namespace nr::gnb
     ies_SOURCE_TO_TARGET_TRANSPARENT_CONTAINER  ->id = ASN_NGAP_ProtocolIE_ID_id_SourceToTarget_TransparentContainer;
     ies_SOURCE_TO_TARGET_TRANSPARENT_CONTAINER  ->criticality = ASN_NGAP_Criticality_reject;
     ies_SOURCE_TO_TARGET_TRANSPARENT_CONTAINER  ->value.present  = ASN_NGAP_HandoverRequiredIEs__value_PR_SourceToTarget_TransparentContainer ; 
-    asn::SetOctetString1( ies_SOURCE_TO_TARGET_TRANSPARENT_CONTAINER ->value.choice.SourceToTarget_TransparentContainer,static_cast<u_int8_t>(0));
+    asn::SetOctetString4( ies_SOURCE_TO_TARGET_TRANSPARENT_CONTAINER ->value.choice.SourceToTarget_TransparentContainer,static_cast<octet4>(ueId));
 
-    /*
-        auto *container = asn::New<ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer>();
-
+    /* 
+    auto *container = asn::New<ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer>();
     container ->rRCContainer; // octet_string 
     auto *handoverPreparationInfos = asn::New<ASN_RRC_HandoverPreparationInformation>();
     handoverPreparationInfos->criticalExtensions.present = ASN_RRC_HandoverPreparationInformation__criticalExtensions_PR_c1;
@@ -157,19 +156,11 @@ namespace nr::gnb
     handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation = asn::New <ASN_RRC_HandoverPreparationInformation_IEs>();
     handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation-> 
 
+
+
     container ->targetCell_ID; // à voir 
-    container ->uEHistoryInformation; // à voir 
+    container ->uEHistoryInformation; // optional (à voir) 
     container -> pDUSessionResourceInformationList; // optional (à voir)
-
-    pistes 
-    auto &upInfo = tr-> dL_NGU_UP_TNLInformation;
-    upInfo.present = ASN_NGAP_UPTransportLayerInformation_PR_gTPTunnel;
-    upInfo.choice.gTPTunnel = asn::New<ASN_NGAP_GTPTunnel>();
-    asn::SetBitString(upInfo.choice.gTPTunnel->transportLayerAddress, resource->downTunnel.address);
-    asn::SetOctetString4(upInfo.choice.gTPTunnel->gTP_TEID, (octet4)resource->downTunnel.teid);
-    
-
-
     // encodage
     OctetString encodedContainer =
         ngap_encode::EncodeS(asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer ,container);
@@ -191,38 +182,40 @@ namespace nr::gnb
 } 
 
   void NgapTask::receiveHandoverRequest (int amfId, ASN_NGAP_HandoverRequest *msg)
-  { // voir à quel moment on doit decider d'envoyer le msg Handover Failure ( c'est a dire à quel moment on considère que la procédure de handover à échoué)
+  {
 
     m_logger->debug("Handover request message received from AMF " );
 
     auto *reqIe = asn::ngap::GetProtocolIe(msg, ASN_NGAP_ProtocolIE_ID_id_AMF_UE_NGAP_ID);
     if (reqIe)
     {
-      auto ueId = static_cast<int>(asn::GetUnsigned64(reqIe -> AMF_UE_NGAP_ID ));
+      auto ueId= static_cast<int>(asn::GetUnsigned64(reqIe -> AMF_UE_NGAP_ID ));
+      int ueRanId={};
+
       if (m_ueCtx.count(ueId))
       {
         m_logger->err("UE context[%d] already exists", ueId);
         return;
       }
-
       // creating new context for ue
       createUeContext(ueId);
-
+     
       auto *ue = findUeContext(ueId);
       if (ue == nullptr)
         return;
-      
-      ue ->amfUeNgapId = ueId; // ça marche 
 
+      ue->amfUeNgapId= ueId;
+
+    /* (optionnal ?? )
       auto *amfCtx = findAmfContext(ue->associatedAmfId);
       if (amfCtx == nullptr)
         return;
-
-    amfCtx->nextStream = (amfCtx->nextStream + 1) % amfCtx->association.outStreams;
+        amfCtx->nextStream = (amfCtx->nextStream + 1) % amfCtx->association.outStreams;
     if ((amfCtx->nextStream == 0) && (amfCtx->association.outStreams > 1))
         amfCtx->nextStream += 1;
     ue-> uplinkStream = amfCtx->nextStream;
 
+    */
 
     // adding Ue Bit rate informations to Ue context
 
@@ -232,13 +225,18 @@ namespace nr::gnb
     ue->ueAmbr.dlAmbr = asn::GetUnsigned64(reqIe->UEAggregateMaximumBitRate.uEAggregateMaximumBitRateDL) / 8ull;
     ue-> ueAmbr.ulAmbr = asn::GetUnsigned64(reqIe->UEAggregateMaximumBitRate.uEAggregateMaximumBitRateUL) / 8ull;
   }
+  // sourceToTargetTransparentContainer
+  reqIe=asn::ngap::GetProtocolIe(msg, ASN_NGAP_ProtocolIE_ID_id_SourceToTarget_TransparentContainer);
+    if (reqIe)
+  {
+    ueRanId = static_cast<int>(asn::GetOctet4(reqIe->SourceToTarget_TransparentContainer));
+  }
 
     // notify gtp task for new Ue
-
+   
     auto w = std::make_unique<NmGnbNgapToGtp>(NmGnbNgapToGtp::UE_CONTEXT_UPDATE);
-    w->update = std::make_unique<GtpUeContextUpdate>(true, ue->ctxId, ue->ueAmbr);
+    w->update = std::make_unique<GtpUeContextUpdate>(true, ueRanId, ue->ueAmbr);
     m_base->gtpTask->push(std::move(w));
-
 
     std::vector<ASN_NGAP_HandoverRequestAcknowledgeIEs*> responseIes;
 
@@ -265,7 +263,7 @@ namespace nr::gnb
               continue;
           }
           // Ressource allocation for each pdu sessions 
-          auto *resource = new PduSessionResource(ue->ctxId, static_cast<int>(item->pDUSessionID));
+          auto *resource = new PduSessionResource(ueRanId, static_cast<int>(item->pDUSessionID));
 
           auto *ie = asn::ngap::GetProtocolIe(transfer, ASN_NGAP_ProtocolIE_ID_id_PDUSessionAggregateMaximumBitRate);
           if (ie)
@@ -285,7 +283,7 @@ namespace nr::gnb
           ie = asn::ngap::GetProtocolIe(transfer, ASN_NGAP_ProtocolIE_ID_id_PDUSessionType);
           if (ie)
               resource->sessionType = ngap_utils::PduSessionTypeFromAsn(ie->PDUSessionType);
-
+          
           ie = asn::ngap::GetProtocolIe(transfer, ASN_NGAP_ProtocolIE_ID_id_UL_NGU_UP_TNLInformation);
           if (ie)
           {
@@ -398,13 +396,13 @@ namespace nr::gnb
     ie_TARGET_TO_SOURCE_TRANSPARENT_CONTAINER ->id = ASN_NGAP_ProtocolIE_ID_id_TargetToSource_TransparentContainer;
     ie_TARGET_TO_SOURCE_TRANSPARENT_CONTAINER  ->criticality = ASN_NGAP_Criticality_reject;
     ie_TARGET_TO_SOURCE_TRANSPARENT_CONTAINER  -> value . present  = ASN_NGAP_HandoverRequestAcknowledgeIEs__value_PR_TargetToSource_TransparentContainer ; 
-    asn::SetOctetString1( ie_TARGET_TO_SOURCE_TRANSPARENT_CONTAINER ->value.choice.TargetToSource_TransparentContainer,static_cast<u_int8_t>(0)); // à revoir
+    asn::SetOctetString4( ie_TARGET_TO_SOURCE_TRANSPARENT_CONTAINER ->value.choice.TargetToSource_TransparentContainer,static_cast<octet4>(m_base -> config -> getGnbId()));
     responseIes.push_back(ie_TARGET_TO_SOURCE_TRANSPARENT_CONTAINER);
 
     //m_logger->debug("TARGET_TO_SOURCE_TRANSPARENT_CONTAINER : OK ");
 
     // send HandoverRequestACK
-     m_logger->debug("Sending handover request ACK to AMF " );
+    m_logger->debug("Sending handover request ACK to AMF " );
     auto *response = asn::ngap::NewMessagePdu<ASN_NGAP_HandoverRequestAcknowledge>(responseIes);
     sendNgapUeAssociated(ue->ctxId,response);
     }
@@ -428,17 +426,23 @@ namespace nr::gnb
           return;
         }
 
-
+        // extracting information from targetToSourceTransparentContainer
+        auto reqIe=asn::ngap::GetProtocolIe(msg, ASN_NGAP_ProtocolIE_ID_id_TargetToSource_TransparentContainer);
+        int targetGnbId={};
+        if (reqIe)
+        {
+           targetGnbId= static_cast<int>(asn::GetOctet4(reqIe->TargetToSource_TransparentContainer));
+        }
       // Sending Handover Command message to Ue
       // Notify RRC task
       auto w = std::make_unique<NmGnbNgapToRrc>(NmGnbNgapToRrc::HANDOVER);
       w->ueId = ue->ctxId;
+      w->targetGnbId=targetGnbId;
       m_base->rrcTask->push(std::move(w));
     }
 
   void NgapTask::handleHandoverConfirm (int ueId)
     {
-      m_logger->debug("Handover Confirm message received from Ue [%d]  ",ueId );
       sendHandoverNotify(ueId);
     }
 
@@ -446,7 +450,7 @@ namespace nr::gnb
     {
     m_logger->debug("Sending handover Notify message to AMF");
 
-    auto *ueCtx = findUeContext (ueId);
+    auto *ueCtx = findUeByRanId(ueId);
     if (ueCtx == nullptr)
         return;
 
@@ -455,21 +459,8 @@ namespace nr::gnb
         return;
 
     std::vector<ASN_NGAP_HandoverNotifyIEs*> ies;
-
-    // UserLocationInformation
-    auto *userLocationInformation = asn::New< ASN_NGAP_HandoverNotifyIEs>();
-    userLocationInformation->id= ASN_NGAP_ProtocolIE_ID_id_UserLocationInformation;
-    userLocationInformation->criticality= ASN_NGAP_Criticality_ignore;
-    userLocationInformation->value.present= ASN_NGAP_HandoverNotifyIEs__value_PR_UserLocationInformation; 
-    //userLocationInformation->value.choice.UserLocationInformation.present;
-    //userLocationInformation->value.choice.UserLocationInformation.choice;
-    //A voir 
-    ies.push_back(userLocationInformation);
-    m_logger->debug("UserLocationInformation : OK");
-
-
     auto *pdu = asn::ngap::NewMessagePdu<ASN_NGAP_HandoverNotify>(ies);
-    sendNgapUeAssociated (ueId,pdu);
+    sendNgapUeAssociated (ueCtx->ctxId,pdu);
   } 
 
 // Handover Failure messages
