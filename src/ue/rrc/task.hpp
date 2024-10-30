@@ -40,6 +40,8 @@ extern "C"
     struct ASN_RRC_Paging;
     struct ASN_RRC_MIB;
     struct ASN_RRC_SIB1;
+
+    struct ASN_RRC_RRCReconfiguration;
 }
 
 namespace nr::ue
@@ -137,6 +139,13 @@ class UeRrcTask : public NtsTask
 
     /* Access Control */
     void performUac(std::shared_ptr<LightSync<UacInput, UacOutput>> &uacCtl);
+
+    /* Handover control */
+    void receiveRrcReconfiguration(const ASN_RRC_RRCReconfiguration &msg);
+    void perfomCellChange(int newCellId);
+    bool isSuitable(UeCellDesc &cell);
+    bool isAcceptable(UeCellDesc &cell);
+    void sendHandoverConfirmMessage();
 };
 
 } // namespace nr::ue
