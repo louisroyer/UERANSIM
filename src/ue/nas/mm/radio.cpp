@@ -214,6 +214,15 @@ void NasMm::handleRrcConnectionRelease()
     switchCmState(ECmState::CM_IDLE);
 }
 
+void NasMm::handleRrcHandoverCommand()
+{
+    //TODO
+    switchCmState(ECmState::CM_IDLE);
+    switchMmState(EMmSubState::MM_REGISTERED_UPDATE_NEEDED);
+    mobilityUpdatingRequired(ERegUpdateCause::EMERGENCY_CASE);
+    //initialRegistrationRequired(EInitialRegCause::DUE_TO_DEREGISTRATION);
+}
+
 void NasMm::handleRrcEstablishmentFailure()
 {
     m_logger->err("RRC Establishment failure");

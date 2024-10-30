@@ -19,6 +19,10 @@
 #include <asn/rrc/ASN_RRC_RRCSetupComplete.h>
 #include <asn/rrc/ASN_RRC_RRCSetupRequest-IEs.h>
 #include <asn/rrc/ASN_RRC_RRCSetupRequest.h>
+#include <asn/rrc/ASN_RRC_RRCReconfiguration.h>
+#include <asn/rrc/ASN_RRC_RRCReconfiguration-IEs.h>
+#include <asn/rrc/ASN_RRC_RRCReconfigurationComplete.h>
+#include <asn/rrc/ASN_RRC_RRCReconfigurationComplete-IEs.h>
 
 namespace nr::ue
 {
@@ -81,6 +85,7 @@ void UeRrcTask::startConnectionEstablishment(OctetString &&nasPdu)
 
     /* Send the message */
     m_logger->debug("Sending RRC Setup Request");
+    m_logger->debug("Active cell [%d]", activeCell);
 
     auto *rrcSetupRequest =
         ConstructSetupRequest(m_initialId, static_cast<ASN_RRC_EstablishmentCause_t>(m_establishmentCause));
@@ -148,6 +153,30 @@ void UeRrcTask::receiveRrcRelease(const ASN_RRC_RRCRelease &msg)
     m_logger->debug("RRC Release received");
     m_state = ERrcState::RRC_IDLE;
     m_base->nasTask->push(std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::RRC_CONNECTION_RELEASE));
+}
+
+void UeRrcTask::receiveRrcReconfiguration(const ASN_RRC_RRCReconfiguration &msg)
+{
+    OctetString infos = asn::GetOctetString(*(msg.criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup));
+    int cellId = infos.getI(0);
+    m_logger->debug("RRC Handover Command received");
+    performCellChange(cellId);
+}
+
+void UeRrcTask::sendHandoverConfirmMessage()
+{
+    m_logger->debug("Sending Handover Confirm message to target NG-RAN");
+    auto *pdu = asn::New<ASN_RRC_UL_DCCH_Message>();
+    pdu->message.present = ASN_RRC_UL_DCCH_MessageType_PR_c1;
+    pdu->message.choice.c1 = asn::NewFor(pdu->message.choice.c1);
+    pdu->message.choice.c1->present = ASN_RRC_UL_DCCH_MessageType__c1_PR_rrcReconfigurationComplete;
+
+    auto &reconfigurationComplete = pdu->message.choice.c1->choice.rrcReconfigurationComplete = asn::New<ASN_RRC_RRCReconfigurationComplete>();
+    //reconfigurationComplete->rrc_TransactionIdentifier = getNextTid();
+    reconfigurationComplete->criticalExtensions.present = ASN_RRC_RRCReconfigurationComplete__criticalExtensions_PR_rrcReconfigurationComplete;
+    reconfigurationComplete->criticalExtensions.choice.rrcReconfigurationComplete = asn::New<ASN_RRC_RRCReconfigurationComplete_IEs>();
+    sendRrcMessage(pdu);
+    asn::Free(asn_DEF_ASN_RRC_UL_DCCH_Message, pdu);
 }
 
 void UeRrcTask::handleEstablishmentFailure()

@@ -62,6 +62,12 @@ void NgapTask::onLoop()
             handleUplinkNasTransport(w.ueId, w.pdu);
             break;
         }
+
+        case NmGnbRrcToNgap::HANDOVER_CONFIRM: {
+            handleHandoverConfirm(w.ueId);
+            break;
+        }
+
         case NmGnbRrcToNgap::RADIO_LINK_FAILURE: {
             handleRadioLinkFailure(w.ueId);
             break;
