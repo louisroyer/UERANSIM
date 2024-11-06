@@ -24,6 +24,12 @@
 #include <gnb/gtp/task.hpp>
 
 #include <asn/ngap/ASN_NGAP_SourceToTarget-TransparentContainer.h>
+#include <asn/ngap/ASN_NGAP_SourceNGRANNode-ToTargetNGRANNode-TransparentContainer.h>
+#include <asn/rrc/ASN_RRC_HandoverPreparationInformation.h>
+#include <asn/rrc/ASN_RRC_HandoverPreparationInformation-IEs.h>
+#include <asn/rrc/ASN_RRC_UE-CapabilityRAT-ContainerList.h>
+#include <asn/ngap/ASN_NGAP_NGRAN-CGI.h>
+#include <lib/rrc/encode.hpp>
 
 #include <asn/ngap/ASN_NGAP_ErrorIndication.h>
 #include <asn/ngap/ASN_NGAP_ProtocolIE-Field.h>
@@ -131,38 +137,52 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
     ies.push_back(iePduSessionList);
 
 
-    //SourceToTarget_TransparentContainer
+    // Source To Target Transparent Container
     auto *ieSourceToTargetTransparentContainer = asn::New<ASN_NGAP_HandoverRequiredIEs>();
     ieSourceToTargetTransparentContainer->id = ASN_NGAP_ProtocolIE_ID_id_SourceToTarget_TransparentContainer;
     ieSourceToTargetTransparentContainer->criticality = ASN_NGAP_Criticality_reject;
     ieSourceToTargetTransparentContainer->value.present = ASN_NGAP_HandoverRequiredIEs__value_PR_SourceToTarget_TransparentContainer;
-    asn::SetOctetString4(ieSourceToTargetTransparentContainer->value.choice.SourceToTarget_TransparentContainer, static_cast<octet4>(ueId));
 
-    /*
+    // Source NG-RAN Node to Target NG-RAN Node Transparent Container
     auto *container = asn::New<ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer>();
-    container ->rRCContainer; // octet_string
     auto *handoverPreparationInfos = asn::New<ASN_RRC_HandoverPreparationInformation>();
     handoverPreparationInfos->criticalExtensions.present = ASN_RRC_HandoverPreparationInformation__criticalExtensions_PR_c1;
-    handoverPreparationInfos->criticalExtensions.choice.c1 = asn::New < ASN_RRC_HandoverPreparationInformation__criticalExtensions__c1 >();
+    handoverPreparationInfos->criticalExtensions.choice.c1 = asn::New<ASN_RRC_HandoverPreparationInformation::ASN_RRC_HandoverPreparationInformation__criticalExtensions::ASN_RRC_HandoverPreparationInformation__ASN_RRC_criticalExtensions_u::ASN_RRC_HandoverPreparationInformation__criticalExtensions__c1>();
     handoverPreparationInfos->criticalExtensions.choice.c1->present = ASN_RRC_HandoverPreparationInformation__criticalExtensions__c1_PR_handoverPreparationInformation;
-    handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation = asn::New <ASN_RRC_HandoverPreparationInformation_IEs>();
-    handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation->
 
+    handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation = asn::New<ASN_RRC_HandoverPreparationInformation_IEs>();
+    //handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation->ue_CapabilityRAT_List = ASN_RRC_UE_CapabilityRAT_ContainerList;
+    //handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation->ue_CapabilityRAT_List.list = //TODO: empty list;
 
+    asn_fprint(stdout, &asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
+    OctetString handoverEncode = rrc::encode::EncodeS(asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
 
-    container->targetCell_ID; // à voir
-    container->uEHistoryInformation; // optional (à voir)
-    container->pDUSessionResourceInformationList; // optional (à voir)
-    // encodage
+    if (handoverEncode.length() == 0)
+        throw std::runtime_error("HandoverPreparationInformation encoding failed");
+
+    asn::Free(asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
+    asn::SetOctetString(container->rRCContainer, handoverEncode);
+
+    auto list = container->pDUSessionResourceInformationList;
+    for (int psi : ueCtx->pduSessions)
+    {
+        //TODO ajouter le pduSessionIdet le QFI
+    }
+
+    auto targetCell_ID = container->targetCell_ID = asn::New<ASN_NGAP_NGRAN_CGI>();
+    // TODO: nrCGI, plmnid, nrcellid
+                                              //
+    targetCell_ID->present = ASN_NGAP_NGRAN_CGI_PR_nR_CGI;
+    container->uEHistoryInformation; // TODO: lastvisitedcell
+
+    asn_fprint(stdout, &asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
     OctetString encodedContainer = ngap_encode::EncodeS(asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
 
     if (encodedContainer.length() == 0)
         throw std::runtime_error("SourceNGRANNode_ToTargetNGRANNode_TransparentContainer encoding failed");
 
     asn::Free(asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
-    asn::SetOctetString(ies_SOURCE_TO_TARGET_TRANSPARENT_CONTAINER->value.choice.SourceToTarget_TransparentContainer, encodedContainer);
-
-    */
+    asn::SetOctetString(ieSourceToTargetTransparentContainer->value.choice.SourceToTarget_TransparentContainer, encodedContainer);
 
 
     ies.push_back(ieSourceToTargetTransparentContainer);
