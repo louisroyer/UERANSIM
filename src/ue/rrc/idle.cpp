@@ -114,43 +114,58 @@ void UeRrcTask::performCellSelection()
 void UeRrcTask::performCellChange(int newCellId)
 {
     auto lastCell = m_base->shCtx.currentCell.get();
-    if (newCellId !=0  &&  m_cellDesc.count(newCellId)!=0 && newCellId != lastCell.cellId  )
+    if (newCellId == 0)
     {
-        ActiveCellInfo cellInfo={};
-        auto handoverCell = m_cellDesc[newCellId];
-        cellInfo.cellId = newCellId;
-        cellInfo.plmn = handoverCell.sib1.plmn;
-        cellInfo.tac = handoverCell.sib1.tac;
-        if (isSuitable(handoverCell))
-            cellInfo.category = ECellCategory::SUITABLE_CELL;
-        else if (isAcceptable(handoverCell))
-            cellInfo.category = ECellCategory::ACCEPTABLE_CELL;
-        else
-        {
-            m_logger->debug("New Cell selection failure, no suitable or acceptable cell found");
-            return;
-        }
-
-        m_base->shCtx.currentCell.set(cellInfo);
-        m_logger->info("Selected new cell plmn[%s] tac[%d] category[%s]", ToJson(cellInfo.plmn).str().c_str(), cellInfo.tac,
-                       ToJson(cellInfo.category).str().c_str());
-        m_logger->debug("Cell[%d] found",m_base->shCtx.currentCell.get<int>([](auto &item) { return item.cellId; }));
-
-        // notify other tasks
-        m_state = ERrcState::RRC_IDLE;
-        auto w1 = std::make_unique<NmUeRrcToRls>(NmUeRrcToRls::ASSIGN_CURRENT_CELL);
-        w1->cellId = newCellId;
-        m_base->rlsTask->push(std::move(w1));
-        m_base->nasTask->push(std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::RRC_HANDOVER_COMMAND));
-
-        /*
-            auto w2 = std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::ACTIVE_CELL_CHANGED);
-            w2->previousTai = Tai{lastCell.plmn, lastCell.tac};
-            m_base->nasTask->push(std::move(w2));
-        */
-        // Sending handover Confirm Message
-        m_base->rrcTask->push(std::make_unique<NmUeRrcToRrc>(NmUeRrcToRrc::HANDOVER_CONFIRM));
+        m_logger->err("Could not change cell: new cell id is 0");
+        return;
     }
+    if (newCellId == lastCell.cellId)
+    {
+        m_logger->err("Could not change cell: new cell has same id than current cell (cell[%d])", lastCell.cellId);
+        return;
+    }
+    if (m_cellDesc.count(newCellId) == 0)
+    {
+        m_logger->err("Could not change cell: new cell has no description");
+        return;
+    }
+    m_logger->debug("Performing cell change from cell[%d] to cell[%d]", lastCell.cellId, newCellId);
+
+    ActiveCellInfo cellInfo={};
+    auto handoverCell = m_cellDesc[newCellId];
+    cellInfo.cellId = newCellId;
+    cellInfo.plmn = handoverCell.sib1.plmn;
+    cellInfo.tac = handoverCell.sib1.tac;
+    if (isSuitable(handoverCell))
+        cellInfo.category = ECellCategory::SUITABLE_CELL;
+    else if (isAcceptable(handoverCell))
+        cellInfo.category = ECellCategory::ACCEPTABLE_CELL;
+    else
+    {
+        m_logger->err("Could not change cell: new cell is not suitable and not acceptable");
+        return;
+    }
+
+    m_base->shCtx.currentCell.set(cellInfo);
+    m_logger->info("Selected new cell plmn[%s] tac[%d] category[%s]", ToJson(cellInfo.plmn).str().c_str(), cellInfo.tac,
+                   ToJson(cellInfo.category).str().c_str());
+    m_logger->debug("Cell[%d] found",m_base->shCtx.currentCell.get<int>([](auto &item) { return item.cellId; }));
+
+    // notify other tasks
+    m_state = ERrcState::RRC_IDLE;
+    auto w1 = std::make_unique<NmUeRrcToRls>(NmUeRrcToRls::ASSIGN_CURRENT_CELL);
+    w1->cellId = newCellId;
+    m_base->rlsTask->push(std::move(w1));
+    m_base->nasTask->push(std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::RRC_HANDOVER_COMMAND));
+
+    /*
+        auto w2 = std::make_unique<NmUeRrcToNas>(NmUeRrcToNas::ACTIVE_CELL_CHANGED);
+        w2->previousTai = Tai{lastCell.plmn, lastCell.tac};
+        m_base->nasTask->push(std::move(w2));
+    */
+    // Sending handover Confirm Message
+    m_base->rrcTask->push(std::make_unique<NmUeRrcToRrc>(NmUeRrcToRrc::HANDOVER_CONFIRM));
+    m_logger->debug("Cell change from cell[%d] to cell[%d]: completed", lastCell.cellId, newCellId);
 }
 
 bool UeRrcTask::isSuitable(UeCellDesc &cell)
