@@ -142,7 +142,7 @@ class UeRrcTask : public NtsTask
 
     /* Handover control */
     void receiveRrcReconfiguration(const ASN_RRC_RRCReconfiguration &msg);
-    void perfomCellChange(int newCellId);
+    void performCellChange(int newCellId);
     bool isSuitable(UeCellDesc &cell);
     bool isAcceptable(UeCellDesc &cell);
     void sendHandoverConfirmMessage();

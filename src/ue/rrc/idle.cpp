@@ -111,7 +111,7 @@ void UeRrcTask::performCellSelection()
 }
 
 
-void UeRrcTask::perfomCellChange(int newCellId)
+void UeRrcTask::performCellChange(int newCellId)
 {
     auto lastCell = m_base->shCtx.currentCell.get();
     if (newCellId !=0  &&  m_cellDesc.count(newCellId)!=0 && newCellId != lastCell.cellId  )

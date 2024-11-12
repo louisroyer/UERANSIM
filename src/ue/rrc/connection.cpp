@@ -160,7 +160,7 @@ void UeRrcTask::receiveRrcReconfiguration(const ASN_RRC_RRCReconfiguration &msg)
     OctetString infos = asn::GetOctetString(*(msg.criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup));
     int cellId = infos.getI(0);
     m_logger->debug("RRC Handover Command received");
-    perfomCellChange(cellId);
+    performCellChange(cellId);
 }
 
 void UeRrcTask::sendHandoverConfirmMessage()
