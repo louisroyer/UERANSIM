@@ -316,11 +316,19 @@ void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
                 else
                 {
                     auto *tr = asn::New<ASN_NGAP_HandoverRequestAcknowledgeTransfer >();
+
                     auto &upInfo = tr->dL_NGU_UP_TNLInformation;
                     upInfo.present = ASN_NGAP_UPTransportLayerInformation_PR_gTPTunnel;
                     upInfo.choice.gTPTunnel = asn::New<ASN_NGAP_GTPTunnel>();
                     asn::SetBitString(upInfo.choice.gTPTunnel->transportLayerAddress, resource->downTunnel.address);
                     asn::SetOctetString4(upInfo.choice.gTPTunnel->gTP_TEID, (octet4)resource->downTunnel.teid);
+
+                    auto &dlForwardingUpTnlInformation = tr->dLForwardingUP_TNLInformation = asn::New<ASN_NGAP_UPTransportLayerInformation>();
+                    dlForwardingUpTnlInformation->present = ASN_NGAP_UPTransportLayerInformation_PR_gTPTunnel;
+                    dlForwardingUpTnlInformation->choice.gTPTunnel = asn::New<ASN_NGAP_GTPTunnel>();
+                    asn::SetBitString(dlForwardingUpTnlInformation->choice.gTPTunnel->transportLayerAddress, resource->downTunnel.address);
+                    asn::SetOctetString4(dlForwardingUpTnlInformation->choice.gTPTunnel->gTP_TEID, (octet4)resource->downTunnel.teid);
+
                     auto &qosList = resource->qosFlows->list;
                     for (int iQos = 0; iQos < qosList.count; iQos++)
                     {
