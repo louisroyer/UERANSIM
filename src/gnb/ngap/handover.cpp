@@ -18,6 +18,8 @@
 #include <asn/ngap/ASN_NGAP_HandoverPreparationFailure.h>
 #include <asn/ngap/ASN_NGAP_HandoverRequestAcknowledge.h>
 #include <asn/ngap/ASN_NGAP_HandoverCommand.h>
+#include <asn/ngap/ASN_NGAP_HandoverCommandTransfer.h>
+#include <asn/ngap/ASN_NGAP_NR-CGI.h>
 
 #include <asn/ngap/ASN_NGAP_GlobalGNB-ID.h>
 #include <asn/ngap/ASN_NGAP_PDUSessionResourceItemHORqd.h>
@@ -28,7 +30,7 @@
 #include <asn/ngap/ASN_NGAP_SourceNGRANNode-ToTargetNGRANNode-TransparentContainer.h>
 #include <asn/rrc/ASN_RRC_HandoverPreparationInformation.h>
 #include <asn/rrc/ASN_RRC_HandoverPreparationInformation-IEs.h>
-#include <asn/rrc/ASN_RRC_UE-CapabilityRAT-ContainerList.h>
+#include <asn/rrc/ASN_RRC_UE-CapabilityRAT-Container.h>
 #include <asn/ngap/ASN_NGAP_NGRAN-CGI.h>
 #include <lib/rrc/encode.hpp>
 
@@ -40,6 +42,11 @@
 #include <asn/ngap/ASN_NGAP_PDUSessionResourceSetupRequestTransfer.h>
 #include <asn/ngap/ASN_NGAP_HandoverRequestAcknowledgeTransfer.h>
 #include <asn/ngap/ASN_NGAP_HandoverResourceAllocationUnsuccessfulTransfer.h>
+#include <asn/ngap/ASN_NGAP_PDUSessionResourceInformationItem.h>
+#include <asn/ngap/ASN_NGAP_QosFlowInformationList.h>
+#include <asn/ngap/ASN_NGAP_QosFlowIdentifier.h>
+#include <asn/ngap/ASN_NGAP_QosFlowInformationItem.h>
+#include <asn/ngap/ASN_NGAP_PDUSessionResourceInformationList.h>
 
 #include <asn/ngap/ASN_NGAP_PDUSessionResourceAdmittedList.h>
 #include <asn/ngap/ASN_NGAP_PDUSessionResourceAdmittedItem.h>
@@ -50,10 +57,78 @@
 #include <asn/ngap/ASN_NGAP_QosFlowSetupRequestList.h>
 #include <asn/ngap/ASN_NGAP_QosFlowSetupRequestItem.h>
 
+#include <asn/ngap/ASN_NGAP_LastVisitedCellItem.h>
+#include <asn/ngap/ASN_NGAP_LastVisitedCellInformation.h>
+#include <asn/ngap/ASN_NGAP_LastVisitedNGRANCellInformation.h>
+
+
+
 #include <asn/ngap/ASN_NGAP_HandoverNotify.h>
+
+#include <array>
+#include <cstdint>
+
 
 namespace nr::gnb
 {
+
+    //Affichage du contenu de ies (debug de vérification de la structure)
+    void DebugPrintIes(const std::vector<ASN_NGAP_HandoverRequiredIEs*> &ies, Logger *logger)
+    {
+        logger->debug("Dumping contents of ies:");
+        for (const auto *ie : ies)
+        {
+            if (ie == nullptr)
+            {
+                logger->debug("  IE: nullptr");
+                continue;
+            }
+    
+            logger->debug("  IE:");
+            logger->debug("    id: %d", ie->id);
+            logger->debug("    criticality: %d", ie->criticality);
+    
+            switch (ie->value.present)
+            {
+                case ASN_NGAP_HandoverRequiredIEs__value_PR_HandoverType:
+                    logger->debug("    value.present: HandoverType");
+                    logger->debug("    value.choice.HandoverType: %d", ie->value.choice.HandoverType);
+                    break;
+        
+                case ASN_NGAP_HandoverRequiredIEs__value_PR_Cause:
+                    logger->debug("    value.present: Cause");
+                    logger->debug("    value.choice.Cause: %d", ie->value.choice.Cause.present);
+                    break;
+        
+                case ASN_NGAP_HandoverRequiredIEs__value_PR_TargetID:
+                    logger->debug("    value.present: TargetID");
+                    logger->debug("    value.choice.TargetID.present: %d", ie->value.choice.TargetID.present);
+                    break;
+        
+                // case ASN_NGAP_HandoverRequiredIEs__value_PR_PDUSessionResourceListHORqd:
+                //     logger->debug("    value.present: PDUSessionResourceListHORqd");
+                //     // Ici, on parcourt la séquence pour afficher chaque session
+                //     if (ie->value.choice.PDUSessionResourceListHORqd) {
+                //         logger->debug("    PDUSessionResourceListHORqd count: %d", ie->value.choice.PDUSessionResourceListHORqd->count);
+                //         for (size_t i = 0; i < ie->value.choice.PDUSessionResourceListHORqd->count; i++) {
+                //             auto *sessionItem = ie->value.choice.PDUSessionResourceListHORqd->array[i];
+                //             if (sessionItem) {
+                //                 logger->debug("      Session[%zu]:", i);
+                //                 logger->debug("        pDUSessionID: %d", sessionItem->pDUSessionID);
+                //                 // Affichage de handoverRequiredTransfer (par exemple, sous forme d'entier ou d'une chaîne hexadécimale)
+                //                 // Ici, on utilise GetOctet1 ou une fonction de conversion similaire selon le type
+                //                 logger->debug("        handoverRequiredTransfer: %d", (int)asn::GetOctet1(sessionItem->handoverRequiredTransfer));
+                //             }
+                //         }
+                //     }
+                //     break;
+                default:
+                    logger->debug("    value.present: Unknown (%d)", ie->value.present);
+                    break;
+            }
+        } 
+    }// Utilisation de la fonction : DebugPrintIes(ies, m_logger);
+
 
 void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
 {
@@ -87,6 +162,9 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
     ieHandoverType->value.present = ASN_NGAP_HandoverRequiredIEs__value_PR_HandoverType;
     ieHandoverType->value.choice.HandoverType = ASN_NGAP_HandoverType_intra5gs;
     ies.push_back(ieHandoverType);
+    // Affichage Ies
+    DebugPrintIes(ies, m_logger.get());
+
 
     // Cause
     auto *ieCause = asn::New<ASN_NGAP_HandoverRequiredIEs>();
@@ -95,6 +173,7 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
     ieCause->value.present = ASN_NGAP_HandoverRequiredIEs__value_PR_Cause;
     ngap_utils::ToCauseAsn_Ref(NgapCause::RadioNetwork_unspecified, ieCause->value.choice.Cause);
     ies.push_back(ieCause);
+    DebugPrintIes(ies, m_logger.get());
 
     // Target ID
     auto *ieTargetId = asn::New<ASN_NGAP_HandoverRequiredIEs>();
@@ -119,7 +198,7 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
     asn::SetOctetString3(ieTargetId->value.choice.TargetID.choice.targetRANNodeID->selectedTAI.tAC, octet3{m_base->config->tac});
 
     ies.push_back(ieTargetId);
-
+    
     // PDU Session Resource List
     auto *iePduSessionList = asn::New<ASN_NGAP_HandoverRequiredIEs>();
     iePduSessionList->id = ASN_NGAP_ProtocolIE_ID_id_PDUSessionResourceListHORqd;
@@ -136,65 +215,278 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
     }
 
     ies.push_back(iePduSessionList);
-
+    DebugPrintIes(ies, m_logger.get());
 
     // Source To Target Transparent Container
+    // asn_sprintf(TYPE, struct)
     auto *ieSourceToTargetTransparentContainer = asn::New<ASN_NGAP_HandoverRequiredIEs>();
     ieSourceToTargetTransparentContainer->id = ASN_NGAP_ProtocolIE_ID_id_SourceToTarget_TransparentContainer;
     ieSourceToTargetTransparentContainer->criticality = ASN_NGAP_Criticality_reject;
     ieSourceToTargetTransparentContainer->value.present = ASN_NGAP_HandoverRequiredIEs__value_PR_SourceToTarget_TransparentContainer;
 
-    // temporary
-    asn::SetOctetString4(ieSourceToTargetTransparentContainer->value.choice.SourceToTarget_TransparentContainer, static_cast<octet4>(ueId));
+
+
 
     // Source NG-RAN Node to Target NG-RAN Node Transparent Container
-    //auto *container = asn::New<ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer>();
-    //auto *handoverPreparationInfos = asn::New<ASN_RRC_HandoverPreparationInformation>();
-    //handoverPreparationInfos->criticalExtensions.present = ASN_RRC_HandoverPreparationInformation__criticalExtensions_PR_c1;
-    //handoverPreparationInfos->criticalExtensions.choice.c1 = asn::New<ASN_RRC_HandoverPreparationInformation::ASN_RRC_HandoverPreparationInformation__criticalExtensions::ASN_RRC_HandoverPreparationInformation__ASN_RRC_criticalExtensions_u::ASN_RRC_HandoverPreparationInformation__criticalExtensions__c1>();
-    //handoverPreparationInfos->criticalExtensions.choice.c1->present = ASN_RRC_HandoverPreparationInformation__criticalExtensions__c1_PR_handoverPreparationInformation;
+    auto *container = asn::New<ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer>();
 
-    //handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation = asn::New<ASN_RRC_HandoverPreparationInformation_IEs>();
+    // Sous-champ 1 : RRC 
+    auto *handoverPreparationInfos = asn::New<ASN_RRC_HandoverPreparationInformation>();
+    handoverPreparationInfos->criticalExtensions.present = ASN_RRC_HandoverPreparationInformation__criticalExtensions_PR_c1;
+    handoverPreparationInfos->criticalExtensions.choice.c1 = asn::New<ASN_RRC_HandoverPreparationInformation::ASN_RRC_HandoverPreparationInformation__criticalExtensions::ASN_RRC_HandoverPreparationInformation__ASN_RRC_criticalExtensions_u::ASN_RRC_HandoverPreparationInformation__criticalExtensions__c1>();
+    handoverPreparationInfos->criticalExtensions.choice.c1->present = ASN_RRC_HandoverPreparationInformation__criticalExtensions__c1_PR_handoverPreparationInformation;
+    
+
+    // coeur du message rRCContainer
+    handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation = asn::New<ASN_RRC_HandoverPreparationInformation_IEs>();
+    auto* hpi_ies = handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation; //Ne fait que "copier" le pointeur pour simplifier l’écriture,
+
+
+    auto* ratItem = asn::New<ASN_RRC_UE_CapabilityRAT_Container>();
+    ratItem->rat_Type = ASN_RRC_RAT_Type_nr;
+    ratItem->ue_CapabilityRAT_Container.size = 4;
+    ratItem->ue_CapabilityRAT_Container.buf = (uint8_t*)calloc(1, 4);
+    if (ratItem->ue_CapabilityRAT_Container.buf == nullptr)
+    {
+        m_logger->err("Failed to allocate memory for ue_CapabilityRAT_Container");
+        return;
+    }
+    ratItem->ue_CapabilityRAT_Container.buf[0] = 0xde;
+    ratItem->ue_CapabilityRAT_Container.buf[1] = 0xad;
+    ratItem->ue_CapabilityRAT_Container.buf[2] = 0xbe;
+    ratItem->ue_CapabilityRAT_Container.buf[3] = 0xef;
+    //Résultat = buffer de ad be ef → totalement valide syntaxiquement pour test.
+
+    ASN_SEQUENCE_ADD(&hpi_ies->ue_CapabilityRAT_List.list, ratItem); //Ajoute le ratItem dans la liste ue_CapabilityRAT_List.list, qui est de type asn_sequence_of.
+    
+
+
+
     //handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation->ue_CapabilityRAT_List = ASN_RRC_UE_CapabilityRAT_ContainerList;
     //handoverPreparationInfos->criticalExtensions.choice.c1->choice.handoverPreparationInformation->ue_CapabilityRAT_List.list = //TODO: empty list;
+    OctetString handoverEncode = rrc::encode::EncodeS(asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
+    
 
-    //asn_fprint(stdout, &asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
-    //OctetString handoverEncode = rrc::encode::EncodeS(asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
 
-    //if (handoverEncode.length() == 0)
-    //    throw std::runtime_error("HandoverPreparationInformation encoding failed");
+    if (handoverEncode.length() == 0) {
+        m_logger->err("HandoverPreparationInformation encoding failed");
+        return;
+    } else {
+        m_logger->debug("Contenu de rRCContainer encodé : taille = %zu octets", handoverEncode.length());
+        asn_fprint(stdout, &asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
+    }
+    
+    asn::Free(asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
+  
+    asn::SetOctetString(container->rRCContainer, handoverEncode);
 
-    //asn::Free(asn_DEF_ASN_RRC_HandoverPreparationInformation, handoverPreparationInfos);
-    //asn::SetOctetString(container->rRCContainer, handoverEncode);
+    // Sous-champ 2 : pDUSessionResourceInformationList
+    // m_logger->debug("2ème partie : Nombre de sessions PDU : %lu", ueCtx->pduSessions.size());
 
-    //auto list = container->pDUSessionResourceInformationList;
-    //for (int psi : ueCtx->pduSessions)
-    //{
-        //TODO ajouter le pduSessionIdet le QFI
-    //}
+    // container->pDUSessionResourceInformationList = asn::New<ASN_NGAP_PDUSessionResourceInformationList_t>();
 
+    // for (int psi : ueCtx->pduSessions)
+    // {
+    //     // création d'un item pour cette session
+    //     auto* pduItem = asn::New<ASN_NGAP_PDUSessionResourceInformationItem>();
+    //     pduItem->pDUSessionID = psi;
+
+    //     //  un QoS Flow fictif (par défaut QFI=1)
+    //     auto* qosItem = asn::New<ASN_NGAP_QosFlowInformationItem>();
+    //     qosItem->qosFlowIdentifier = 1;
+
+    //     // ajout du QoS Flow à la liste
+    //     ASN_SEQUENCE_ADD(&pduItem->qosFlowInformationList.list, qosItem);
+
+    //     // ajout de l'item complet à la liste des ressources PDU
+    //     ASN_SEQUENCE_ADD(&container->pDUSessionResourceInformationList->list, pduItem);
+    //     m_logger->debug("Ajout de la session PDU ID = %d avec QFI = %d", psi, qosItem->qosFlowIdentifier);
+    // }
+
+
+
+    // auto list #define ASN_EMIT_DEBUG 1
+#include <asn/asn1c/asn_internal.h>= container->pDUSessionResourceInformationList;
+    // for (int psi : ueCtx->pduSessions)
+    // {
+    //     TODO ajouter le pduSessionId et le QFI
+    // }
+
+
+    // Sous-champ 3 : targetCell_ID
+
+    
     //auto targetCell_ID = container->targetCell_ID = asn::New<ASN_NGAP_NGRAN_CGI>();
     // TODO: nrCGI, plmnid, nrcellid
-                                              //
+                                            
+    container->targetCell_ID.present = ASN_NGAP_NGRAN_CGI_PR_nR_CGI;
+    container->targetCell_ID.choice.nR_CGI = asn::New<ASN_NGAP_NR_CGI>();
+
+    // PLMN ID : MCC=262, MNC=73 → hex = 0x62f237
+    // MCC à remplir : MCC = 001 MNC = 01
+    uint8_t plmnId[3] = { 0x62, 0xf2, 0x37 };
+
+    container->targetCell_ID.choice.nR_CGI->pLMNIdentity.size = 3;
+    container->targetCell_ID.choice.nR_CGI->pLMNIdentity.buf = (uint8_t*)calloc(1, 3);
+    memcpy(container->targetCell_ID.choice.nR_CGI->pLMNIdentity.buf, plmnId, 3);
+    if (container->targetCell_ID.choice.nR_CGI->pLMNIdentity.buf == nullptr) {
+        m_logger->err("Failed to allocate memory for pLMNIdentity");
+        return;
+    }
+    else{
+        m_logger->debug("plMNIdentity allocated successfully");
+    }
+
+    // NR Cell Identity = 0x0000004f1 (28 bits → 5 octets avec padding)
+    uint32_t cellId = 0x000004f1;  // 28 bits (NR Cell Identity)
+    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.size = 5;
+    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.bits_unused = 4; // 4 bits inutilisés
+    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf = (uint8_t*)calloc(1, 5);
+    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[0] = 0x00;
+    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[1] = 0x00;
+    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[2] = 0x00;
+    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[3] = 0x04;
+    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[4] = 0xf1;
+
+
+    m_logger->debug("3ème partie : targetCellID défini dynamiquement : PLMN = %02x%02x%02x, CellID = 0x%08x",
+        plmnId[0], plmnId[1], plmnId[2], cellId);
+    
+    if (container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf == nullptr) {
+        m_logger->err("Failed to allocate memory for nRCellIdentity");
+        return;
+    }
+    else{
+        m_logger->debug("nRCellIdentity allocated successfully");
+    }
+
+    // Affichage de targetCell_ID
+    m_logger->debug("Affichage du contenu de targetCell_ID avant encodage :");
+    asn_fprint(stdout, &asn_DEF_ASN_NGAP_NGRAN_CGI, &container->targetCell_ID);
+
+    // Encodage de targetCell_ID
+    // OctetString targetCellIdEncode = ngap_encode::EncodeS(asn_DEF_ASN_NGAP_NGRAN_CGI, &container->targetCell_ID);
+    // if (targetCellIdEncode.length() == 0) {
+    //     m_logger->err("targetCell_ID encoding failed");
+    //     // return;
+    // } else {
+    //     m_logger->debug("Contenu de targetCell_ID encodé : taille = %zu octets", targetCellIdEncode.length());
+    //     asn_fprint(stdout, &asn_DEF_ASN_NGAP_NGRAN_CGI, &container->targetCell_ID);
+    // }
+
+    // Sous-champ 4 : LastVisitedCell
+    // container->uEHistoryInformation = *asn::New<ASN_NGAP_UEHistoryInformation_t>();
+    auto* cellItem = asn::New<ASN_NGAP_LastVisitedCellItem>();
+
+
+    
+    // Choix du type de cellule : nGRAN
+    cellItem->lastVisitedCellInformation.present = ASN_NGAP_LastVisitedCellInformation_PR_nGRANCell;
+    cellItem->lastVisitedCellInformation.choice.nGRANCell = asn::New<ASN_NGAP_LastVisitedNGRANCellInformation_t>();
+
+
+    // Copie du NR-CGI
+    auto* ngran = cellItem->lastVisitedCellInformation.choice.nGRANCell;
+    ngran->globalCellID.present = ASN_NGAP_NGRAN_CGI_PR_nR_CGI;
+    ngran->globalCellID.choice.nR_CGI = asn::New<ASN_NGAP_NR_CGI>();
+
+    // PLMN ID
+    ngran->globalCellID.choice.nR_CGI->pLMNIdentity.size = 3;
+    ngran->globalCellID.choice.nR_CGI->pLMNIdentity.buf = (uint8_t*)calloc(1, 3);
+    memcpy(ngran->globalCellID.choice.nR_CGI->pLMNIdentity.buf, plmnId, 3);
+
+    // NR Cell ID
+
+    // Après avoir créé et initialisé ngran->globalCellID.choice.nR_CGI, faites :
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.size = 5;
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.bits_unused = 4; // 4 bits inutilisés pour 36 bits effectifs
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf = (uint8_t*)calloc(1, 5);
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[0] = 0x00;
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[1] = 0x00;
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[2] = 0x00;
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[3] = 0x04;
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[4] = 0xf1;
+
+    // Type de cellule : medium (0 = small, 1 = medium, 2 = large)
+    ngran->cellType.cellSize = ASN_NGAP_CellSize_medium;
+
+    // Durée de séjour fictive : 42 secondes
+    ngran->timeUEStayedInCell = 42;
+
+
+    ngran->timeUEStayedInCellEnhancedGranularity = nullptr;
+    ngran->hOCauseValue = nullptr;
+    ngran->iE_Extensions = nullptr;
+
+    
+    // Ajout dans la liste
+    ASN_SEQUENCE_ADD(&container->uEHistoryInformation.list, cellItem);
+
+    // Log dynamique
+    m_logger->debug("Ajout ueHistoryInformation : PLMN = %02x%02x%02x, CellID = 0x%08x, durée = %d sec",
+        plmnId[0], plmnId[1], plmnId[2], cellId, ngran->timeUEStayedInCell);
+
+    // Encodage de uEHistoryInformation
+    // OctetString uEHistoryInfoEncode = ngap_encode::EncodeS(asn_DEF_ASN_NGAP_UEHistoryInformation, &container->uEHistoryInformation);
+    // if (uEHistoryInfoEncode.length() == 0) {
+    //     m_logger->err("uEHistoryInformation encoding failed");
+    //     // return;
+    // } else {
+    //     m_logger->debug("Contenu de uEHistoryInformation encodé : taille = %zu octets", uEHistoryInfoEncode.length());
+    //     asn_fprint(stdout, &asn_DEF_ASN_NGAP_UEHistoryInformation, &container->uEHistoryInformation);
+    // }
+
+
     //targetCell_ID->present = ASN_NGAP_NGRAN_CGI_PR_nR_CGI;
     //container->uEHistoryInformation; // TODO: lastvisitedcell
 
     //asn_fprint(stdout, &asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
-    //OctetString encodedContainer = ngap_encode::EncodeS(asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
+    m_logger->debug("4 ème partie : 📦 Contenu du container ASN.1 juste avant encodage :\n ");
+    asn_fprint(stdout, &asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
+    
+    //OctetString containerEncoded = ngap_encode::EncodeS(asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
 
-    //if (encodedContainer.length() == 0)
-    //    throw std::runtime_error("SourceNGRANNode_ToTargetNGRANNode_TransparentContainer encoding failed");
+    // if (containerEncoded.length() == 0) {
+    //     m_logger->err("Échec de l'encodage du SourceToTargetTransparentContainer !");
+    //     asn_fprint(stderr, &asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
+    //     throw std::runtime_error("SourceNGRANNode_ToTargetNGRANNode_TransparentContainer encoding failed");
+    // }
 
+    OctetString containerEncoded = ngap_encode::EncodeS(asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
+    std::stringstream ss;
+    for (size_t i = 0; i < containerEncoded.length(); ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') 
+        << static_cast<int>(containerEncoded.data()[i]) << " ";
+    }
+    m_logger->debug("Buffer encodé (%zd octets): %s", containerEncoded.length(), ss.str().c_str());
+
+
+    //     if (containerEncoded.length() == 0) {
+    //         throw std::runtime_error("Encodage échoué");
+    //     }
+    // } catch (const std::exception &e) {
+    //     m_logger->err("Erreur d'encodage : %s", e.what());
+    // }
+    
+    //asn_fprint(stderr, &asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, containerEncoded);
     //asn::Free(asn_DEF_ASN_NGAP_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer, container);
-    //asn::SetOctetString(ieSourceToTargetTransparentContainer->value.choice.SourceToTarget_TransparentContainer, encodedContainer);
+    asn::SetOctetString(ieSourceToTargetTransparentContainer->value.choice.SourceToTarget_TransparentContainer, containerEncoded);
+
+    //asn::SetOctetString4(ieSourceToTargetTransparentContainer->value.choice.SourceToTarget_TransparentContainer, static_cast<octet4>(ueId));
+    // m_logger->debug("Premier test: le champ SourceToTarget_TransparentContainer a été défini avec l'ueId = %d", ueId);
 
 
+    
     ies.push_back(ieSourceToTargetTransparentContainer);
     auto *pdu = asn::ngap::NewMessagePdu<ASN_NGAP_HandoverRequired>(ies);
 
     m_logger->debug("Sending Handover Required request");
     sendNgapUeAssociated(ueId, pdu);
+
+        // temporary
 }
+
+
 
 void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
 {
