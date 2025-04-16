@@ -306,7 +306,7 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
 
 
     // auto list #define ASN_EMIT_DEBUG 1
-#include <asn/asn1c/asn_internal.h>= container->pDUSessionResourceInformationList;
+// #include <asn/asn1c/asn_internal.h>= container->pDUSessionResourceInformationList;
     // for (int psi : ueCtx->pduSessions)
     // {
     //     TODO ajouter le pduSessionId et le QFI
@@ -497,19 +497,21 @@ void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
     {
         auto ueId= static_cast<int>(asn::GetUnsigned64(reqIe->AMF_UE_NGAP_ID ));
         int ueRanId={};
+        int32_t sst = 1; // FIXME: init SST with the actual value
 
-        if (m_ueCtx.count(ueId))
-        {
+        if (m_ueCtx.count(ueId)) {
             m_logger->err("UE context[%d] already exists", ueId);
             return;
         }
-        // Creating new context for ue
-        int32_t sst = -1; // FIXME: init SST with the actual value
         createUeContext(ueId, sst);
         auto *ue = findUeContext(ueId);
-        if (ue == nullptr)
+        if (!ue)
+        {
+            m_logger->err("Failed to create UE context[%d]", ueId);
             return;
+        }
         ue->amfUeNgapId = ueId;
+        ue->associatedAmfId = amfId;
 
         /* (optionnal ?? )
           auto *amfCtx = findAmfContext(ue->associatedAmfId);
@@ -521,7 +523,12 @@ void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
         ue-> uplinkStream = amfCtx->nextStream;
 
         */
-
+        // Récupération du contexte AMF
+        auto *amfCtx = findAmfContext(amfId);
+        if (!amfCtx) {
+            m_logger->err("AMF context not found with id: %d", amfId);
+            return;
+        }
         // adding Ue Bit rate informations to Ue context
         reqIe = asn::ngap::GetProtocolIe(msg, ASN_NGAP_ProtocolIE_ID_id_UEAggregateMaximumBitRate);
         if (reqIe)
