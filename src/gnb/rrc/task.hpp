@@ -81,7 +81,7 @@ class GnbRrcTask : public NtsTask
     void receiveUplinkInformationTransfer(int ueId, const ASN_RRC_ULInformationTransfer &msg);
 
     /* Handlers for RCC handover message */
-    void handleHandoverCommand(int ueId, int targetGnbId);
+    void handleHandoverCommand(int ueId, const OctetString &rrcContainer);
     void receiveRrcHandoverConfirm(int ueId, const ASN_RRC_RRCReconfigurationComplete &msg);
 
     /* RRC channel send message */

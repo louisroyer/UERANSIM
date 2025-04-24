@@ -137,23 +137,34 @@ void GnbRrcTask::handlePaging(const asn::Unique<ASN_NGAP_FiveG_S_TMSI> &tmsi,
     asn::Free(asn_DEF_ASN_RRC_PCCH_Message, pdu);
 }
 
-void GnbRrcTask::handleHandoverCommand(int ueId, int targetGnbId)
+void GnbRrcTask::handleHandoverCommand(int ueId, const OctetString &cellIdOctets)
 {
+    
     m_logger->debug("Sending RRC Handover Command for UE[%d]", ueId);
-    // Send RRC Handover Command message
+
     auto *pdu = asn::New<ASN_RRC_DL_DCCH_Message>();
     pdu->message.present = ASN_RRC_DL_DCCH_MessageType_PR_c1;
     pdu->message.choice.c1 = asn::NewFor(pdu->message.choice.c1);
     pdu->message.choice.c1->present = ASN_RRC_DL_DCCH_MessageType__c1_PR_rrcReconfiguration;
-    auto &rrcReconfiguration = pdu->message.choice.c1->choice.rrcReconfiguration = asn::New<ASN_RRC_RRCReconfiguration>();
-    rrcReconfiguration->rrc_TransactionIdentifier = getNextTid();
-    rrcReconfiguration->criticalExtensions.present = ASN_RRC_RRCReconfiguration__criticalExtensions_PR_rrcReconfiguration;
-    rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration = asn::New<ASN_RRC_RRCReconfiguration_IEs>(); // voir comment remplir cet Ie
-    rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup = asn::New<OCTET_STRING>();
-    asn::SetOctetString1(*(rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup), targetGnbId);
+
+    auto &rrc = pdu->message.choice.c1->choice.rrcReconfiguration = asn::New<ASN_RRC_RRCReconfiguration>();
+    rrc->rrc_TransactionIdentifier = getNextTid();
+    rrc->criticalExtensions.present = ASN_RRC_RRCReconfiguration__criticalExtensions_PR_rrcReconfiguration;
+    rrc->criticalExtensions.choice.rrcReconfiguration = asn::New<ASN_RRC_RRCReconfiguration_IEs>();
+    rrc->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup = asn::New<OCTET_STRING>();
+
+    // On injecte simplement le buffer donné en paramètre
+    asn::SetOctetString(*(rrc->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup), cellIdOctets);
+
+    if (cellIdOctets.length() == 0)
+    {
+        m_logger->warn("secondaryCellGroup is empty! CellIdOctets length = 0");
+    }   
+
     sendRrcMessage(ueId, pdu);
     asn::Free(asn_DEF_ASN_RRC_DL_DCCH_Message, pdu);
 }
+
 
 void GnbRrcTask::receiveRrcHandoverConfirm(int ueId, const ASN_RRC_RRCReconfigurationComplete &msg)
 {

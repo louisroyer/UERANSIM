@@ -71,7 +71,7 @@ void GnbRrcTask::onLoop()
             break;
         }
         case NmGnbNgapToRrc::HANDOVER: {
-            handleHandoverCommand(w.ueId,w.targetGnbId);
+            handleHandoverCommand(w.ueId, w.rrcContainer);
             break;
         }
         }

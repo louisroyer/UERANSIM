@@ -113,6 +113,8 @@ void UeRrcTask::performCellSelection()
 
 void UeRrcTask::performCellChange(int newCellId)
 {
+
+    m_logger->debug("Checking existence of cellId = %d", newCellId);
     auto lastCell = m_base->shCtx.currentCell.get();
     if (newCellId == 0)
     {

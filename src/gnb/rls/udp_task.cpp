@@ -100,6 +100,7 @@ void RlsUdpTask::receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::Rls
             // if the simulated signal strength is such low, then ignore this message
             return;
         }
+        m_logger->debug("Received RLS PDU: type=%d, sti=%llu", msg->msgType, msg->sti);
 
         if (m_stiToUe.count(msg->sti))
         {
@@ -115,6 +116,7 @@ void RlsUdpTask::receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::Rls
             m_ueMap[ueId].address = addr;
             m_ueMap[ueId].lastSeen = utils::CurrentTimeMillis();
 
+            m_logger->debug("New UE created from unknown STI: sti=%llu → ueId=%d", msg->sti, ueId);
             auto w = std::make_unique<NmGnbRlsToRls>(NmGnbRlsToRls::SIGNAL_DETECTED);
             w->ueId = ueId;
             m_ctlTask->push(std::move(w));

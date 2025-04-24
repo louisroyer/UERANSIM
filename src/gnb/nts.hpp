@@ -181,7 +181,8 @@ struct NmGnbNgapToRrc : NtsMessage
     asn::Unique<ASN_NGAP_TAIListForPaging> taiListForPaging{};
 
     // HANDOVER
-    int targetGnbId{};
+    //int targetCell{};
+    OctetString rrcContainer{};
 
     explicit NmGnbNgapToRrc(PR present) : NtsMessage(NtsMessageType::GNB_NGAP_TO_RRC), present(present)
     {

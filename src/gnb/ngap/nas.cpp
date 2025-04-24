@@ -29,7 +29,7 @@ namespace nr::gnb
 
 int32_t extractSliceInfoAndModifyPdu(OctetString &nasPdu) {
     nas::RegistrationRequest *regRequest = nullptr;
-    int32_t requestedSliceType = -1;
+    int32_t requestedSliceType = 1;
     const uint8_t *m_data = nasPdu.data();
     size_t m_dataLength = nasPdu.length(); 
     OctetView octetView(m_data, m_dataLength);
@@ -67,7 +67,7 @@ void NgapTask::handleInitialNasTransport(int ueId, OctetString &nasPdu, int64_t 
 {
     int32_t requestedSliceType = extractSliceInfoAndModifyPdu(nasPdu);
 
-    m_logger->debug("Initial NAS message received from UE[%d]", ueId);
+    m_logger->debug("Initial NAS message received from UE[%d] with this slice[%d]", ueId, requestedSliceType);
 
     if (m_ueCtx.count(ueId))
     {
@@ -76,6 +76,7 @@ void NgapTask::handleInitialNasTransport(int ueId, OctetString &nasPdu, int64_t 
     }
 
     createUeContext(ueId, requestedSliceType);
+    m_logger->debug("UE context[%d] created", ueId);
 
     auto *ueCtx = findUeContext(ueId);
     if (ueCtx == nullptr)

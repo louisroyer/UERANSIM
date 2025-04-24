@@ -158,7 +158,7 @@ void UeRrcTask::receiveRrcRelease(const ASN_RRC_RRCRelease &msg)
 void UeRrcTask::receiveRrcReconfiguration(const ASN_RRC_RRCReconfiguration &msg)
 {
     OctetString infos = asn::GetOctetString(*(msg.criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup));
-    int cellId = infos.getI(0);
+    int cellId = infos.getI(infos.length() - 1);  // récupère le dernier octet (celui contenant l'information du cellId)
     m_logger->debug("RRC Handover Command received");
     performCellChange(cellId);
 }

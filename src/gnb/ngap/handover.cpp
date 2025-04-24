@@ -61,6 +61,10 @@
 #include <asn/ngap/ASN_NGAP_LastVisitedCellInformation.h>
 #include <asn/ngap/ASN_NGAP_LastVisitedNGRANCellInformation.h>
 
+#include <asn/rrc/ASN_RRC_RRCReconfiguration.h>
+#include <asn/rrc/ASN_RRC_RRCReconfiguration-IEs.h>
+#include <asn/rrc/ASN_RRC_HandoverCommand.h>
+#include <asn/ngap/ASN_NGAP_TargetNGRANNode-ToSourceNGRANNode-TransparentContainer.h>
 
 
 #include <asn/ngap/ASN_NGAP_HandoverNotify.h>
@@ -313,44 +317,62 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
     // }
 
 
-    // Sous-champ 3 : targetCell_ID
-
-    
-    //auto targetCell_ID = container->targetCell_ID = asn::New<ASN_NGAP_NGRAN_CGI>();
-    // TODO: nrCGI, plmnid, nrcellid
-                                            
+    // === Sous-champ 3 : targetCell_ID ===
     container->targetCell_ID.present = ASN_NGAP_NGRAN_CGI_PR_nR_CGI;
     container->targetCell_ID.choice.nR_CGI = asn::New<ASN_NGAP_NR_CGI>();
 
-    // PLMN ID : MCC=262, MNC=73 → hex = 0x62f237
-    // MCC à remplir : MCC = 001 MNC = 01
-    uint8_t plmnId[3] = { 0x62, 0xf2, 0x37 };
+    auto *nrCgi = container->targetCell_ID.choice.nR_CGI;
 
-    container->targetCell_ID.choice.nR_CGI->pLMNIdentity.size = 3;
-    container->targetCell_ID.choice.nR_CGI->pLMNIdentity.buf = (uint8_t*)calloc(1, 3);
-    memcpy(container->targetCell_ID.choice.nR_CGI->pLMNIdentity.buf, plmnId, 3);
-    if (container->targetCell_ID.choice.nR_CGI->pLMNIdentity.buf == nullptr) {
-        m_logger->err("Failed to allocate memory for pLMNIdentity");
-        return;
+    // ==== Statique selon gnbTargetId ====
+    uint8_t plmnId[3];
+    uint64_t nci = 0;  // 36 bits
+
+    switch (gnbTargetID)
+    {
+        case 1: // gNB1
+            plmnId[0] = 0x00;
+            plmnId[1] = 0xf1;
+            plmnId[2] = 0x10;
+            nci = 0x000000001; // Cell ID = 1
+            break;
+
+        case 2: // gNB2
+            plmnId[0] = 0x00;
+            plmnId[1] = 0xf1;
+            plmnId[2] = 0x10;
+            nci = 0x000000002; // Cell ID = 2
+            break;
+
+        default:
+            m_logger->err("Unknown target gNB ID: %d", gnbTargetID);
+            return;
     }
-    else{
-        m_logger->debug("plMNIdentity allocated successfully");
-    }
 
-    // NR Cell Identity = 0x0000004f1 (28 bits → 5 octets avec padding)
-    uint32_t cellId = 0x000004f1;  // 28 bits (NR Cell Identity)
-    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.size = 5;
-    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.bits_unused = 4; // 4 bits inutilisés
-    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf = (uint8_t*)calloc(1, 5);
-    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[0] = 0x00;
-    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[1] = 0x00;
-    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[2] = 0x00;
-    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[3] = 0x04;
-    container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf[4] = 0xf1;
+    // === PLMN ID ===
+    nrCgi->pLMNIdentity.size = 3;
+    nrCgi->pLMNIdentity.buf = (uint8_t*)calloc(1, 3);
+    memcpy(nrCgi->pLMNIdentity.buf, plmnId, 3);
+
+    // === NR Cell Identity (NCI) ===
+    uint8_t *buf = (uint8_t*)calloc(1, 5);
+    for (int i = 0; i < 5; ++i)
+        buf[4 - i] = (nci >> (8 * i)) & 0xFF;
+
+    nrCgi->nRCellIdentity.buf = buf;
+    nrCgi->nRCellIdentity.size = 5;
+    nrCgi->nRCellIdentity.bits_unused = 4; // 36 bits utiles
+
+    m_logger->debug("Statically set targetCell_ID: PLMN=%02x%02x%02x, NCI=0x%09lx",
+        plmnId[0], plmnId[1], plmnId[2], nci);
 
 
-    m_logger->debug("3ème partie : targetCellID défini dynamiquement : PLMN = %02x%02x%02x, CellID = 0x%08x",
-        plmnId[0], plmnId[1], plmnId[2], cellId);
+
+    // m_logger->debug("3ème partie : targetCellID défini dynamiquement : PLMN = %02x%02x%02x, CellID = 0x%08x",
+    //     plmnId[0], plmnId[1], plmnId[2], nrCgi);
+  
+
+    asn_fprint(stdout, &asn_DEF_ASN_NGAP_NGRAN_CGI, &container->targetCell_ID);
+    
     
     if (container->targetCell_ID.choice.nR_CGI->nRCellIdentity.buf == nullptr) {
         m_logger->err("Failed to allocate memory for nRCellIdentity");
@@ -377,54 +399,50 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
     // Sous-champ 4 : LastVisitedCell
     // container->uEHistoryInformation = *asn::New<ASN_NGAP_UEHistoryInformation_t>();
     auto* cellItem = asn::New<ASN_NGAP_LastVisitedCellItem>();
-
-
-    
-    // Choix du type de cellule : nGRAN
     cellItem->lastVisitedCellInformation.present = ASN_NGAP_LastVisitedCellInformation_PR_nGRANCell;
     cellItem->lastVisitedCellInformation.choice.nGRANCell = asn::New<ASN_NGAP_LastVisitedNGRANCellInformation_t>();
-
-
-    // Copie du NR-CGI
+    
     auto* ngran = cellItem->lastVisitedCellInformation.choice.nGRANCell;
+    
+    // === NR-CGI ===
     ngran->globalCellID.present = ASN_NGAP_NGRAN_CGI_PR_nR_CGI;
     ngran->globalCellID.choice.nR_CGI = asn::New<ASN_NGAP_NR_CGI>();
-
-    // PLMN ID
-    ngran->globalCellID.choice.nR_CGI->pLMNIdentity.size = 3;
-    ngran->globalCellID.choice.nR_CGI->pLMNIdentity.buf = (uint8_t*)calloc(1, 3);
-    memcpy(ngran->globalCellID.choice.nR_CGI->pLMNIdentity.buf, plmnId, 3);
-
-    // NR Cell ID
-
-    // Après avoir créé et initialisé ngran->globalCellID.choice.nR_CGI, faites :
+    
+    // === PLMN ID ===
+    asn::SetOctetString3(
+        ngran->globalCellID.choice.nR_CGI->pLMNIdentity,
+        ngap_utils::PlmnToOctet3(m_base->config->plmn)
+    );
+    
+    // === NR Cell Identity (36 bits sur 40, bits_unused = 4) ===
+    uint64_t fullNci = m_base->config->nci;
+    buf = (uint8_t*)calloc(1, 5);
+    for (int i = 0; i < 5; ++i) {
+        buf[4 - i] = (fullNci >> (8 * i)) & 0xFF;
+    }
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf = buf;
     ngran->globalCellID.choice.nR_CGI->nRCellIdentity.size = 5;
-    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.bits_unused = 4; // 4 bits inutilisés pour 36 bits effectifs
-    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf = (uint8_t*)calloc(1, 5);
-    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[0] = 0x00;
-    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[1] = 0x00;
-    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[2] = 0x00;
-    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[3] = 0x04;
-    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.buf[4] = 0xf1;
-
-    // Type de cellule : medium (0 = small, 1 = medium, 2 = large)
+    ngran->globalCellID.choice.nR_CGI->nRCellIdentity.bits_unused = 4;
+    
+    // === Cell type + temps ===
     ngran->cellType.cellSize = ASN_NGAP_CellSize_medium;
-
-    // Durée de séjour fictive : 42 secondes
     ngran->timeUEStayedInCell = 42;
-
-
+    
     ngran->timeUEStayedInCellEnhancedGranularity = nullptr;
     ngran->hOCauseValue = nullptr;
     ngran->iE_Extensions = nullptr;
-
     
-    // Ajout dans la liste
+    // Ajout à la liste
     ASN_SEQUENCE_ADD(&container->uEHistoryInformation.list, cellItem);
-
-    // Log dynamique
-    m_logger->debug("Ajout ueHistoryInformation : PLMN = %02x%02x%02x, CellID = 0x%08x, durée = %d sec",
-        plmnId[0], plmnId[1], plmnId[2], cellId, ngran->timeUEStayedInCell);
+    
+    // Log
+    m_logger->debug("Ajout ueHistoryInformation : PLMN = %d/%d, CellID = 0x%08x, durée = %d sec",
+        m_base->config->plmn.mcc,
+        m_base->config->plmn.mnc,
+        static_cast<uint32_t>(fullNci),
+        ngran->timeUEStayedInCell);
+    
+    
 
     // Encodage de uEHistoryInformation
     // OctetString uEHistoryInfoEncode = ngap_encode::EncodeS(asn_DEF_ASN_NGAP_UEHistoryInformation, &container->uEHistoryInformation);
@@ -480,7 +498,7 @@ void NgapTask::sendHandoverRequired(int ueId, int gnbTargetID)
     ies.push_back(ieSourceToTargetTransparentContainer);
     auto *pdu = asn::ngap::NewMessagePdu<ASN_NGAP_HandoverRequired>(ies);
 
-    m_logger->debug("Sending Handover Required request");
+    m_logger->debug("Sending Handover Required request for UE[%d] to AMF[%d]", ueId, ueCtx->associatedAmfId);
     sendNgapUeAssociated(ueId, pdu);
 
         // temporary
@@ -687,11 +705,37 @@ void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
         auto *ieTargetToSourceTransparentContainer = asn::New<ASN_NGAP_HandoverRequestAcknowledgeIEs>();
         ieTargetToSourceTransparentContainer->id = ASN_NGAP_ProtocolIE_ID_id_TargetToSource_TransparentContainer;
         ieTargetToSourceTransparentContainer->criticality = ASN_NGAP_Criticality_reject;
-        ieTargetToSourceTransparentContainer->value.present = ASN_NGAP_HandoverRequestAcknowledgeIEs__value_PR_TargetToSource_TransparentContainer;
-        asn::SetOctetString4(ieTargetToSourceTransparentContainer->value.choice.TargetToSource_TransparentContainer, static_cast<octet4>(m_base->config->getGnbId()));
+        ieTargetToSourceTransparentContainer->value.present =
+            ASN_NGAP_HandoverRequestAcknowledgeIEs__value_PR_TargetToSource_TransparentContainer;
+
+        // 1. Créer un OctetString contenant le cellId cible
+        OctetString cellIdEncoded;
+        // Le container est censé contenir 32 bits, soit 4 octets. 
+        // Le dernier octet devant être le targetGNB ID
+    
+        cellIdEncoded.appendOctet4(static_cast<octet4>(m_base->config->getGnbId())); // dernier octet = 1 ou 2 dépendamment du targetGNB
+
+        // 2. Création de la structure ASN NGAP container
+        auto *rrcContainer = asn::New<ASN_NGAP_TargetNGRANNode_ToSourceNGRANNode_TransparentContainer>();
+        asn::SetOctetString(rrcContainer->rRCContainer, cellIdEncoded);
+
+        // 3. Encoder la structure en octets ASN.1
+        OctetString encodedContainer = ngap_encode::EncodeS(
+            asn_DEF_ASN_NGAP_TargetNGRANNode_ToSourceNGRANNode_TransparentContainer,
+            rrcContainer
+        );
+        asn::Free(asn_DEF_ASN_NGAP_TargetNGRANNode_ToSourceNGRANNode_TransparentContainer, rrcContainer);
+
+        // 4. Lier le container encodé au champ du message
+        asn::SetOctetString(
+            ieTargetToSourceTransparentContainer->value.choice.TargetToSource_TransparentContainer,
+            encodedContainer
+        );
+
+        // 5. Ajout à la liste des IEs
         responseIes.push_back(ieTargetToSourceTransparentContainer);
 
-        // send HandoverRequestACK
+        // Envoi
         m_logger->debug("Sending handover request ACK to AMF");
         auto *response = asn::ngap::NewMessagePdu<ASN_NGAP_HandoverRequestAcknowledge>(responseIes);
         sendNgapUeAssociated(ue->ctxId, response);
@@ -700,7 +744,7 @@ void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
 
 void NgapTask::receiveHandoverCommand(int amfId, ASN_NGAP_HandoverCommand * msg)
 {
-    m_logger->debug("Handover Command message received from AMF");
+    m_logger->debug("Handover Command message received from AMF[%d]", amfId);
     auto *ue = findUeByNgapIdPair(amfId, ngap_utils::FindNgapIdPair(msg));
     if (ue == nullptr)
     {
@@ -710,17 +754,19 @@ void NgapTask::receiveHandoverCommand(int amfId, ASN_NGAP_HandoverCommand * msg)
 
     // extracting information from targetToSourceTransparentContainer
     auto reqIe = asn::ngap::GetProtocolIe(msg, ASN_NGAP_ProtocolIE_ID_id_TargetToSource_TransparentContainer);
-    int targetGnbId={};
-
     if (reqIe)
-        targetGnbId = static_cast<int>(asn::GetOctet4(reqIe->TargetToSource_TransparentContainer));
+    {
+        auto containerBytes = asn::GetOctetString(reqIe->TargetToSource_TransparentContainer);
+        auto w = std::make_unique<NmGnbNgapToRrc>(NmGnbNgapToRrc::HANDOVER);
+        w->ueId = ue->ctxId;
+        w->rrcContainer = std::move(containerBytes);
 
-    // Sending Handover Command message to Ue
-    // Notify RRC task
-    auto w = std::make_unique<NmGnbNgapToRrc>(NmGnbNgapToRrc::HANDOVER);
-    w->ueId = ue->ctxId;
-    w->targetGnbId = targetGnbId;
-    m_base->rrcTask->push(std::move(w));
+        m_base->rrcTask->push(std::move(w));
+    }
+    else
+    {
+        m_logger->err("Missing TargetToSource_TransparentContainer IE");
+    }
 }
 
 void NgapTask::handleHandoverConfirm(int ueId)
