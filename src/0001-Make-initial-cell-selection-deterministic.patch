@@ -1,0 +1,37 @@
+From f58ad6311e257647182a94500b563081e16fdecb Mon Sep 17 00:00:00 2001
+From: Louis Royer <infos.louis.royer@gmail.com>
+Date: Thu, 17 Apr 2025 16:05:08 +0200
+Subject: [PATCH] Make initial cell selection deterministic
+
+---
+ src/ue/rrc/idle.cpp | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/src/ue/rrc/idle.cpp b/src/ue/rrc/idle.cpp
+index 06af35fa..56582eb1 100644
+--- a/src/ue/rrc/idle.cpp
++++ b/src/ue/rrc/idle.cpp
+@@ -268,13 +268,17 @@ bool UeRrcTask::lookForSuitableCell(ActiveCellInfo &cellInfo, CellSelectionRepor
+         return false;
+ 
+     // Order candidates by signal strength
+-    std::sort(candidates.begin(), candidates.end(), [this](int a, int b) {
++    auto selectedId = *std::max_element(candidates.begin(), candidates.end(), [this](int a, int b) {
+         auto &cellA = m_cellDesc[a];
+         auto &cellB = m_cellDesc[b];
+-        return cellB.dbm < cellA.dbm;
++        if (cellA.dbm == cellB.dbm)
++        {
++            // same strength: smaller NCI has priority (to have a stable sort)
++            return cellA.sib1.nci > cellB.sib1.nci;
++        }
++        return cellA.dbm < cellB.dbm;
+     });
+ 
+-    auto &selectedId = candidates[0];
+     auto &selectedCell = m_cellDesc[selectedId];
+ 
+     cellInfo = {};
+-- 
+2.39.5
+

@@ -40,6 +40,12 @@ class GtpTask : public NtsTask
   public:
     explicit GtpTask(TaskBase *base);
     ~GtpTask() override = default;
+        /// Renvoie la ressource PSI d’un UE ou nullptr si absente.
+        PduSessionResource *findPduResource(int ueId, int psi) const;
+
+    void switchDownlinkTeid(int ueId, int psi,
+      uint32_t newTeid, OctetString &newAddr);
+    void handleSessionCreate(PduSessionResource *session);
 
   protected:
     void onStart() override;
@@ -49,13 +55,13 @@ class GtpTask : public NtsTask
   private:
     void handleUdpReceive(const udp::NwUdpServerReceive &msg);
     void handleUeContextUpdate(const GtpUeContextUpdate &msg);
-    void handleSessionCreate(PduSessionResource *session);
     void handleSessionRelease(int ueId, int psi);
     void handleUeContextDelete(int ueId);
     void handleUplinkData(int ueId, int psi, OctetString &&data);
 
     void updateAmbrForUe(int ueId);
     void updateAmbrForSession(uint64_t pduSession);
+
 };
 
 } // namespace nr::gnb

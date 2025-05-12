@@ -49,6 +49,8 @@ void NgapTask::createUeContext(int ueId, int32_t &requestedSliceType)
         ctx->associatedAmfId = amf->ctxId;
 }
 
+
+
 NgapUeContext *NgapTask::findUeContext(int ctxId)
 {
     NgapUeContext *ctx = nullptr;
@@ -123,14 +125,14 @@ NgapUeContext *NgapTask::findUeByNgapIdPair(int amfCtxId, const NgapIdPair &idPa
         return nullptr;
     }
 
-    if (ue->amfUeNgapId == -1)
-        ue->amfUeNgapId = amfId.value();
-    else if (ue->amfUeNgapId != amfId.value())
-    {
-        sendErrorIndication(amfCtxId, NgapCause::RadioNetwork_inconsistent_remote_UE_NGAP_ID);
-        return nullptr;
+    if (ue->amfUeNgapId == -1) {
+        ue->amfUeNgapId = amfId.value();            // premier attach
+    } else if (ue->amfUeNgapId != amfId.value()) {
+        m_logger->warn("AMF-UE-ID changed %ld -> %ld (handover)", 
+                       ue->amfUeNgapId, amfId.value());
+        ue->amfUeNgapId = amfId.value();            // ← on l’accepte
     }
-
+        
     return ue;
 }
 

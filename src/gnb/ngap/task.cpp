@@ -47,7 +47,12 @@ void NgapTask::onLoop()
     auto msg = take();
     if (!msg)
         return;
-
+    if (!m_ueCtx.empty()) {
+        m_logger->debug("UE context map currently contains:");
+        for (const auto &[ueId, ctx] : m_ueCtx) {
+            m_logger->debug(" - UE[{%d}] → AMF_NGAP_ID: {%d}", ueId, ctx->amfUeNgapId);
+        }
+    }
     switch (msg->msgType)
     {
     case NtsMessageType::GNB_RRC_TO_NGAP: {
@@ -64,6 +69,8 @@ void NgapTask::onLoop()
         }
 
         case NmGnbRrcToNgap::HANDOVER_CONFIRM: {
+            // std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            // m_logger->debug("Waited 50ms before sending HandoverConfirm");
             handleHandoverConfirm(w.ueId);
             break;
         }
@@ -99,6 +106,7 @@ void NgapTask::onLoop()
         break;
     }
     }
+ 
 }
 
 void NgapTask::onQuit()
@@ -110,5 +118,7 @@ void NgapTask::onQuit()
     m_ueCtx.clear();
     m_amfCtx.clear();
 }
+
+
 
 } // namespace nr::gnb

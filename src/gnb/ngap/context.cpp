@@ -12,6 +12,7 @@
 
 #include <gnb/gtp/task.hpp>
 #include <gnb/rrc/task.hpp>
+#include <gnb/rls/task.hpp>
 
 #include <asn/ngap/ASN_NGAP_AMF-UE-NGAP-ID.h>
 #include <asn/ngap/ASN_NGAP_AssociatedQosFlowItem.h>
@@ -62,8 +63,10 @@ void NgapTask::receiveInitialContextSetup(int amfId, ASN_NGAP_InitialContextSetu
 
     auto *ue = findUeByNgapIdPair(amfId, ngap_utils::FindNgapIdPair(msg));
     if (ue == nullptr)
+    {
+        m_logger->err("[context.cpp] Cannot find UE context[%d]", ue->ctxId);
         return;
-
+    }
     auto w = std::make_unique<NmGnbNgapToGtp>(NmGnbNgapToGtp::UE_CONTEXT_UPDATE);
     w->update = std::make_unique<GtpUeContextUpdate>(true, ue->ctxId, ue->ueAmbr);
     m_base->gtpTask->push(std::move(w));
@@ -250,6 +253,8 @@ void NgapTask::receiveContextRelease(int amfId, ASN_NGAP_UEContextReleaseCommand
     sendNgapUeAssociated(ue->ctxId, response);
 
     deleteUeContext(ue->ctxId);
+    // m_base->rlsTask->udpTask()->clearStiMappingForUe(ueId);
+    m_base->rlsTask->udpTask()->setHandoverInProgress(false);
 }
 
 void NgapTask::receiveContextModification(int amfId, ASN_NGAP_UEContextModificationRequest *msg)

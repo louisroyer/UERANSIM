@@ -40,6 +40,10 @@ class RlsUdpTask : public NtsTask
     std::unordered_map<uint64_t, int> m_stiToUe;
     std::unordered_map<int, UeInfo> m_ueMap;
     int m_newIdCounter;
+    bool m_handoverInProgress = false;
+    TaskBase* m_base;
+
+
 
   public:
     explicit RlsUdpTask(TaskBase *base, uint64_t sti, Vector3 phyLocation);
@@ -54,10 +58,20 @@ class RlsUdpTask : public NtsTask
     void receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::RlsMessage> &&msg);
     void sendRlsPdu(const InetAddress &addr, const rls::RlsMessage &msg);
     void heartbeatCycle(int64_t time);
+    
+    public:
 
-  public:
     void initialize(NtsTask *ctlTask);
     void send(int ueId, const rls::RlsMessage &msg);
+    // Lors d’un handover, force le sti à pointer vers ce ueId
+    void updateStiToUe(uint64_t sti, int ueId);
+    // Pour retrouver le sti associé à un ueId si besoin
+    int getUeIdBySti(uint64_t sti) const;
+    std::optional<uint64_t> getStiByUeId(int ueId) const;
+    // Appelé par le NGAP task pour lui dire “un HO est en cours”
+    void setHandoverInProgress(bool active);
+    bool handoverInProgress() const { return m_handoverInProgress; }
+    void clearStiMappingForUe(int ueId);
 };
 
 } // namespace nr::gnb

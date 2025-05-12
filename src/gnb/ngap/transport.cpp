@@ -54,7 +54,6 @@ static e_ASN_NGAP_Criticality FindCriticalityOfUserIe(ASN_NGAP_NGAP_PDU *pdu, AS
                 procedureCode == ASN_NGAP_ProcedureCode_id_HandoverPreparation)
                 return ASN_NGAP_Criticality_reject;
         }
-
         if (procedureCode == ASN_NGAP_ProcedureCode_id_PDUSessionResourceNotify ||
             procedureCode == ASN_NGAP_ProcedureCode_id_PDUSessionResourceModifyIndication ||
             procedureCode == ASN_NGAP_ProcedureCode_id_RRCInactiveTransitionReport ||

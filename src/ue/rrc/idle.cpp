@@ -37,6 +37,8 @@ void UeRrcTask::performCellSelection()
     CellSelectionReport report;
 
     bool cellFound = false;
+
+
     if (m_base->shCtx.selectedPlmn.get().hasValue())
     {
         cellFound = lookForSuitableCell(cellInfo, report);
@@ -273,8 +275,11 @@ bool UeRrcTask::lookForSuitableCell(ActiveCellInfo &cellInfo, CellSelectionRepor
     std::sort(candidates.begin(), candidates.end(), [this](int a, int b) {
         auto &cellA = m_cellDesc[a];
         auto &cellB = m_cellDesc[b];
-        return cellB.dbm < cellA.dbm;
+        if (cellA.dbm != cellB.dbm)
+            return cellA.dbm > cellB.dbm;  // plus fort dBm en premier
+        return a < b;             // fallback sur index (très arbitraire)
     });
+
 
     auto &selectedId = candidates[0];
     auto &selectedCell = m_cellDesc[selectedId];
@@ -345,12 +350,15 @@ bool UeRrcTask::lookForAcceptableCell(ActiveCellInfo &cellInfo, CellSelectionRep
     if (candidates.empty())
         return false;
 
-    // Order candidates by signal strength first
+    // Order candidates by signal strength
     std::sort(candidates.begin(), candidates.end(), [this](int a, int b) {
         auto &cellA = m_cellDesc[a];
         auto &cellB = m_cellDesc[b];
-        return cellB.dbm < cellA.dbm;
+        if (cellA.dbm != cellB.dbm)
+            return cellA.dbm > cellB.dbm;  // plus fort dBm en premier
+        return cellA.sib1.nci > cellB.sib1.nci;  // fallback sur index (le plus petit identifiant est sélectionné)
     });
+
 
     // Then order candidates by PLMN priority if we have a selected PLMN
     Plmn selectedPlmn = m_base->shCtx.selectedPlmn.get();

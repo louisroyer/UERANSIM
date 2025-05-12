@@ -12,6 +12,8 @@
 #include <gnb/rls/task.hpp>
 #include <utils/constants.hpp>
 #include <utils/libc_error.hpp>
+#include <utils/common.hpp>
+#include <gnb/types.hpp>
 
 #include <asn/ngap/ASN_NGAP_QosFlowSetupRequestItem.h>
 
@@ -115,8 +117,17 @@ void GtpTask::handleSessionCreate(PduSessionResource *session)
         m_logger->err("PDU session resource could not be created, UE context with ID[%d] not found", session->ueId);
         return;
     }
+    else{
+        m_logger->debug("[task-handleSessionCreate] this=[%p] PDU session resource created for UE[%d] PSI[%d]", this, session->ueId, session->psi);
+    }
 
     uint64_t sessionInd = MakeSessionResInd(session->ueId, session->psi);
+    m_logger->debug("Storing session key=0x%016llx", sessionInd);
+    if (m_pduSessions.count(sessionInd))
+    {
+        m_logger->err("PDU session resource could not be created, session with ID[%016llx] already exists", sessionInd);
+        return;
+    }
     m_pduSessions[sessionInd] = std::unique_ptr<PduSessionResource>(session);
 
     m_sessionTree.insert(sessionInd, session->downTunnel.teid);
@@ -283,5 +294,42 @@ void GtpTask::updateAmbrForSession(uint64_t pduSession)
     m_rateLimiter->updateSessionUplinkLimit(pduSession, sess->sessionAmbr.ulAmbr);
     m_rateLimiter->updateSessionDownlinkLimit(pduSession, sess->sessionAmbr.dlAmbr);
 }
+
+
+PduSessionResource *GtpTask::findPduResource(int ueId, int psi) const
+{
+    
+    // uint64_t key = (static_cast<uint64_t>(ueId) << 8) | (psi & 0xFF);
+    uint64_t key = (static_cast<uint64_t>(ueId) << 32) | static_cast<uint32_t>(psi);
+    m_logger->debug("Looking up session key=0x%016llx", key);
+    auto it = m_pduSessions.find(key);
+    if (it == m_pduSessions.end())
+        return nullptr;
+    else
+        m_logger->debug("Found session");
+    return it->second.get();   
+}
+
+
+void GtpTask::switchDownlinkTeid(int ueId, int psi,
+    uint32_t newTeid, OctetString &newAddr)
+{
+    /* 1) retrouver le contexte UE puis la ressource PSI               */
+    auto itCtx = m_ueContexts.find(ueId);
+    if (itCtx == m_ueContexts.end())
+    return;
+
+    for (auto &kv : itCtx->second->pduSessions) {     // kv : pair<const int, unique_ptr<…>>
+        auto &res = *kv.second;                      // PduSessionResource&
+        if (res.psi == psi) {
+            res.downTunnel.teid    = newTeid;
+            res.downTunnel.address = std::move(newAddr);
+            break;
+        }
+    }
+    
+}
+
+
 
 } // namespace nr::gnb

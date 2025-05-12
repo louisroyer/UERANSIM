@@ -69,18 +69,18 @@ void NgapTask::handleInitialNasTransport(int ueId, OctetString &nasPdu, int64_t 
 
     m_logger->debug("Initial NAS message received from UE[%d] with this slice[%d]", ueId, requestedSliceType);
 
-    if (m_ueCtx.count(ueId))
-    {
-        m_logger->err("UE context[%d] already exists", ueId);
-        return;
-    }
-
-    createUeContext(ueId, requestedSliceType);
-    m_logger->debug("UE context[%d] created", ueId);
-
     auto *ueCtx = findUeContext(ueId);
-    if (ueCtx == nullptr)
-        return;
+
+    if (!ueCtx) {                                   // attach initial
+        createUeContext(ueId, requestedSliceType);
+        ueCtx = findUeContext(ueId);
+        m_logger->debug("NAS : UE context[%d] created (attach initial)", ueId);
+    } else {                                        // handover
+        m_logger->debug("NAS : UE context[%d] réutilisé (handover)", ueId);
+    }
+    
+    /* Si, pour une raison improbable, il reste nul → on stoppe */
+    if (!ueCtx) return;
     auto *amfCtx = findAmfContext(ueCtx->associatedAmfId);
     if (amfCtx == nullptr)
         return;

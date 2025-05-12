@@ -59,7 +59,6 @@ struct ServedGuami
     std::string backupAmfName{};
 };
 
-// TODO: update cli and json for overload related types
 
 enum class EOverloadAction
 {
@@ -124,6 +123,8 @@ struct AggregateMaximumBitRate
     uint64_t ulAmbr{};
 };
 
+
+
 struct NgapUeContext
 {
     const int ctxId{};
@@ -135,6 +136,8 @@ struct NgapUeContext
     int downlinkStream{};
     AggregateMaximumBitRate ueAmbr{};
     std::set<int> pduSessions{};
+    bool handoverPending {false}; // on attend le HeartBeatAck
+    uint64_t  sti {0};                 // STI finalement associé
 
     explicit NgapUeContext(int ctxId) : ctxId(ctxId)
     {
@@ -276,6 +279,7 @@ struct GtpUeContext
 {
     const int ueId;
     AggregateMaximumBitRate ueAmbr{};
+    std::map<int, std::unique_ptr<PduSessionResource>> pduSessions;
 
     explicit GtpUeContext(const int ueId) : ueId(ueId)
     {
