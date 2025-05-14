@@ -112,29 +112,54 @@ void GtpTask::handleUeContextUpdate(const GtpUeContextUpdate &msg)
 
 void GtpTask::handleSessionCreate(PduSessionResource *session)
 {
-    if (!m_ueContexts.count(session->ueId))
-    {
-        m_logger->err("PDU session resource could not be created, UE context with ID[%d] not found", session->ueId);
+    if (!m_ueContexts.count(session->ueId)) {
+        m_logger->err("PDU session resource could not be created, "
+                      "UE context with ID[%d] not found", session->ueId);
+        delete session;
         return;
-    }
-    else{
-        m_logger->debug("[task-handleSessionCreate] this=[%p] PDU session resource created for UE[%d] PSI[%d]", this, session->ueId, session->psi);
     }
 
     uint64_t sessionInd = MakeSessionResInd(session->ueId, session->psi);
-    m_logger->debug("Storing session key=0x%016llx", sessionInd);
-    if (m_pduSessions.count(sessionInd))
-    {
-        m_logger->err("PDU session resource could not be created, session with ID[%016llx] already exists", sessionInd);
-        return;
-    }
-    m_pduSessions[sessionInd] = std::unique_ptr<PduSessionResource>(session);
 
+    /* ------------------------------------------------------------------
+     * → la session existe déjà : on garde l’objet existant mais
+     *    on remplace son tunnel downlink et on ré-indexe le TEID
+     * ------------------------------------------------------------------ */
+    auto it = m_pduSessions.find(sessionInd);
+    if (it != m_pduSessions.end()) {
+        auto &dstTunnel = it->second->downTunnel;
+
+        uint32_t oldTeid = dstTunnel.teid;
+        uint32_t newTeid = session->downTunnel.teid;
+
+        /* --- mise à jour du tunnel down-link existant --- */
+        dstTunnel.teid    = newTeid;
+        /* move pour éviter la copie interdite d’OctetString */
+        dstTunnel.address = std::move(session->downTunnel.address);
+
+    
+        m_sessionTree.remove(sessionInd, oldTeid);
+        m_sessionTree.insert(sessionInd, newTeid);
+
+        m_logger->warn("PDU session [%016llx] déjà existante – "
+                       "TEID DL remplacé %u → %u",
+                       sessionInd, oldTeid, newTeid);
+
+        delete session;          // on n’utilise pas le bloc fraîchement
+        return;                  // alloué : plus de « already exists »
+    }
+
+    /* ---------- chemin normal : création ---------- */
+    m_pduSessions[sessionInd].reset(session);
     m_sessionTree.insert(sessionInd, session->downTunnel.teid);
 
     updateAmbrForUe(session->ueId);
     updateAmbrForSession(sessionInd);
+
+    m_logger->debug("PDU session [%016llx] créée, TEID DL=%u",
+                    sessionInd, session->downTunnel.teid);
 }
+
 
 void GtpTask::handleSessionRelease(int ueId, int psi)
 {

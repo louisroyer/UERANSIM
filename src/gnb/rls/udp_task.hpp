@@ -72,6 +72,7 @@ class RlsUdpTask : public NtsTask
     void setHandoverInProgress(bool active);
     bool handoverInProgress() const { return m_handoverInProgress; }
     void clearStiMappingForUe(int ueId);
+    int reserveNewUeId();  
 };
 
 } // namespace nr::gnb

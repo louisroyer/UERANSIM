@@ -152,7 +152,7 @@ static OrderedMap<std::string, CmdEntry> g_gnbCmdEntries = {
     {"ue-list", {"List all UEs associated with the gNB", "", DefaultDesc, false}},
     {"ue-count", {"Print the total number of UEs connected the this gNB", "", DefaultDesc, false}},
     {"ue-release", {"Request a UE context release for the given UE", "<ue-id>", DefaultDesc, false}},
-    {"handover", {"Trigger Handover procedure on given NG-RAN ID for a specific UE", "<gnb-id> <ue-id>", DefaultDesc, false} },
+    {"handover", {"Trigger Handover procedure on given NG-RAN ID for a specific UE", "<ue-id> <gnb-id>", DefaultDesc, false} },
 };
 
 static OrderedMap<std::string, CmdEntry> g_ueCmdEntries = {
@@ -221,9 +221,9 @@ static std::unique_ptr<GnbCliCommand> GnbCliParseImpl(const std::string &subCmd,
     {
         auto cmd = std::make_unique<GnbCliCommand>(GnbCliCommand::HANDOVER);
         if (options.positionalCount() != 2)
-            CMD_ERR("TARGET-GNB ID and UE ID are expected")
-        cmd->gnbId = utils::ParseInt(options.getPositional(0));
-        cmd->ueId = utils::ParseInt(options.getPositional(1));
+            CMD_ERR("UE ID AND TARGET-GNB ID are expected")
+        cmd->ueId = utils::ParseInt(options.getPositional(0));
+        cmd->gnbId = utils::ParseInt(options.getPositional(1));
         if (cmd->gnbId <= 0)
             CMD_ERR("Invalid GNB ID")
         else if (cmd->ueId <= 0)

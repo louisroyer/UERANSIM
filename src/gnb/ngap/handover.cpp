@@ -547,7 +547,9 @@ void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
     }
     
     // int ueId = static_cast<int>(asn::GetUnsigned64(reqIe->AMF_UE_NGAP_ID));
-    int ueId = 1; 
+    // int ueId = 1; 
+    int ueId = m_base->rlsTask->udpTask()->reserveNewUeId();
+    m_logger->debug("UE ID reserved: %d", ueId);
     int ueRanId = {};
     int32_t sst = 1; // FIXME: récupère la vraie valeur si possible
     
@@ -571,6 +573,7 @@ void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
         m_base->rlsTask->udpTask()->setHandoverInProgress(true);
         ue->associatedAmfId = amfId;
         ue->amfUeNgapId = static_cast<int>(asn::GetUnsigned64(reqIe->AMF_UE_NGAP_ID));
+        ue->ranUeNgapId = ueId;  
       
     }
     
@@ -625,6 +628,14 @@ void NgapTask::receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg)
         m_base->gtpTask->push(std::move(w));
         std::vector<ASN_NGAP_HandoverRequestAcknowledgeIEs*> responseIes;
 
+        for (int psiOld : ue->pduSessions)                //  ‹pduSessions› déjà
+        {                                                 //  présents dans le
+            auto wRel = std::make_unique<NmGnbNgapToGtp>( //  placeholder « ue »
+                             NmGnbNgapToGtp::SESSION_RELEASE);
+            wRel->ueId = ueId;
+            wRel->psi  = psiOld;
+            m_base->gtpTask->push(std::move(wRel));
+        }
         // Handover PDU Session Resource Allocation
 
         std::vector<ASN_NGAP_PDUSessionResourceAdmittedItem*> successList;

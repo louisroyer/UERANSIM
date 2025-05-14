@@ -129,16 +129,23 @@ void RlsUdpTask::clearStiMappingForUe(int ueId) {
     m_ueMap.erase(ueId);
 }
 
+int RlsUdpTask::reserveNewUeId()
+{
+    return m_newIdCounter;  
+}
+
 void RlsUdpTask::receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::RlsMessage> &&msg)
 {
     if (msg->msgType == rls::EMessageType::HEARTBEAT)
-    {
+    {   
         int64_t now = utils::CurrentTimeMillis();
         int dbm = EstimateSimulatedDbm(m_phyLocation, ((const rls::RlsHeartBeat &)*msg).simPos);
         if (dbm < MIN_ALLOWED_DBM)
         {
-            return; // Signal trop faible
+            // if the simulated signal strength is such low, then ignore this message
+            return;
         }
+
         m_logger->info("[HB] t=%lld  sti=%llu  dbm=%d  stiKnown=%d  hoPend=%d  mapSize=%zu",
             now,
             msg->sti,
@@ -151,102 +158,49 @@ void RlsUdpTask::receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::Rls
                 return 0;
             })(),
             m_stiToUe.size());
-
-
-        // 1. Cas STI déjà connu → MAJ de l'adresse + association classique
         if (m_stiToUe.count(msg->sti))
         {
             int ueId = m_stiToUe[msg->sti];
-            m_ueMap[ueId].sti = msg->sti;
             m_ueMap[ueId].address = addr;
             m_ueMap[ueId].lastSeen = utils::CurrentTimeMillis();
-            m_logger->debug("STI[%llu] connu → UE[%d] tentative de mis à jour", msg->sti, ueId);
-
-            // Gestion du flag handoverPending si encore actif
-            auto *ngUe = m_base->ngapTask->getUeContext(ueId);
-            if (ngUe && ngUe->handoverPending)
-            {
-                ngUe->handoverPending = false;
-                ngUe->sti = msg->sti;
-
-                m_logger->debug("STI[%llu] associé à UE[%d] (fin HO)", msg->sti, ueId);
-            }
-            else
-            {
-                if (!ngUe)
-                    m_logger->warn("Impossible de récupérer le contexte NGAP pour UE[%d] depuis ueId=%d (STI=%llu)", ueId, ueId, msg->sti);
-                else
-                    m_logger->debug("UE[%d] trouvé mais pas en handoverPending (STI=%llu) → aucune action", ueId, msg->sti);
-            }
-
         }
         else
         {
-            // 2. Cas STI inconnu → cherche un UE avec handoverPending
-            bool matchedHandover = false;
+            int ueId = ++m_newIdCounter;
 
-            const auto &ueCtxMap = m_base->ngapTask->getAllUeContexts();
-            for (const auto &[ctxId, ctx] : ueCtxMap)
-            {
-                if (ctx && ctx->handoverPending)
-                {
-                    m_logger->info("[rls-udp] STI[%llu] reçu pour UE[%d] en handover → association établie", msg->sti, ctxId);
-                    m_stiToUe[msg->sti] = ctxId;
-                    m_ueMap[ctxId].address = addr;
-                    m_ueMap[ctxId].lastSeen = utils::CurrentTimeMillis();
-                    ctx->handoverPending = false;
-                    ctx->sti = msg->sti;
-                    matchedHandover = true;
-                    break;
-                }
-                
-            }
 
-            if (!matchedHandover)
-            {
-                //3.1. Si on est en train d'exécuter un handover, on ne doit pas créer de nouvelle association
-                if (m_handoverInProgress)
-                {
-                    m_logger->warn("[HB] STI inconnu et handover en cours → aucune action");
-                    return; 
-                }
+            m_stiToUe[msg->sti] = ueId;
+            m_ueMap[ueId].address = addr;
+            m_ueMap[ueId].lastSeen = utils::CurrentTimeMillis();
 
-                // 3.2. Cas normal → création d'un nouvel UE
-                m_logger->warn("[HB] sti=%llu inconnu → tentative d’association", msg->sti);
-                int ueId = ++m_newIdCounter;
-                m_logger->debug("New UE id created : ueId=%d", ueId);
-                m_stiToUe[msg->sti] = ueId;
-                m_ueMap[ueId].address = addr;
-                m_ueMap[ueId].lastSeen = utils::CurrentTimeMillis();
 
-                m_logger->debug("New UE found from unknown STI: sti=%llu → ueId=%d", msg->sti, ueId);
-
-                auto w = std::make_unique<NmGnbRlsToRls>(NmGnbRlsToRls::SIGNAL_DETECTED);
-                w->ueId = ueId;
-                m_ctlTask->push(std::move(w));
-            }
+            auto w = std::make_unique<NmGnbRlsToRls>(NmGnbRlsToRls::SIGNAL_DETECTED);
+            w->ueId = ueId;
+            m_ctlTask->push(std::move(w));
         }
 
-        // 4. Réponse Heartbeat dans tous les cas
+
         rls::RlsHeartBeatAck ack{m_sti};
         ack.dbm = dbm;
+
+
         sendRlsPdu(addr, ack);
         return;
     }
 
-    // Si ce n’est pas un heartbeat mais que le STI est inconnu → on ignore
+
     if (!m_stiToUe.count(msg->sti))
     {
+        // if no HB received yet, and the message is not HB, then ignore the message
         return;
     }
 
-    // Message RLS normal à transférer
+
     auto w = std::make_unique<NmGnbRlsToRls>(NmGnbRlsToRls::RECEIVE_RLS_MESSAGE);
     w->ueId = m_stiToUe[msg->sti];
     w->msg = std::move(msg);
     m_ctlTask->push(std::move(w));
 }
-
 
 
 void RlsUdpTask::sendRlsPdu(const InetAddress &addr, const rls::RlsMessage &msg)

@@ -252,6 +252,8 @@ void NgapTask::receiveContextRelease(int amfId, ASN_NGAP_UEContextReleaseCommand
     auto *response = asn::ngap::NewMessagePdu<ASN_NGAP_UEContextReleaseComplete>({});
     sendNgapUeAssociated(ue->ctxId, response);
 
+    
+
     deleteUeContext(ue->ctxId);
     // m_base->rlsTask->udpTask()->clearStiMappingForUe(ueId);
     m_base->rlsTask->udpTask()->setHandoverInProgress(false);

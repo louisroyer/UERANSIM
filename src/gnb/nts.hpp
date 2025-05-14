@@ -227,6 +227,7 @@ struct NmGnbNgapToGtp : NtsMessage
         SESSION_RELEASE,
     } present;
 
+
     // UE_CONTEXT_UPDATE
     std::unique_ptr<GtpUeContextUpdate> update{};
 
