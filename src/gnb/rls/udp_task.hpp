@@ -40,7 +40,6 @@ class RlsUdpTask : public NtsTask
     std::unordered_map<uint64_t, int> m_stiToUe;
     std::unordered_map<int, UeInfo> m_ueMap;
     int m_newIdCounter;
-    TaskBase *m_base;
 
   public:
     explicit RlsUdpTask(TaskBase *base, uint64_t sti, Vector3 phyLocation);

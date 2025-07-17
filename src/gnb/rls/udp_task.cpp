@@ -18,8 +18,6 @@
 #include <utils/constants.hpp>
 #include <utils/libc_error.hpp>
 
-#include <gnb/ngap/task.hpp> // <— for NgapTask & findUeContext
-
 static constexpr const int BUFFER_SIZE = 16384;
 
 static constexpr const int LOOP_PERIOD = 1000;
@@ -45,7 +43,7 @@ namespace nr::gnb
 
 RlsUdpTask::RlsUdpTask(TaskBase *base, uint64_t sti, Vector3 phyLocation)
     : m_server{}, m_ctlTask{}, m_sti{sti}, m_phyLocation{phyLocation}, m_lastLoop{}, m_stiToUe{},
-      m_ueMap{}, m_newIdCounter{}, m_base(base)
+      m_ueMap{}, m_newIdCounter{}
 {
     m_logger = base->logBase->makeUniqueLogger("rls-udp");
 
