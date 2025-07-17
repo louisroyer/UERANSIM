@@ -44,12 +44,10 @@ void NgapTask::createUeContext(int ueId, int32_t &requestedSliceType)
     // Perform AMF selection
     auto *amf = selectAmf(ueId, requestedSliceType);
     if (amf == nullptr)
-        m_logger->err("AMF selection for UE[%d] failed. Could not find a suitable AMF for this slice[%d].", ueId,requestedSliceType);
+        m_logger->err("AMF selection for UE[%d] failed. Could not find a suitable AMF.", ueId);
     else
         ctx->associatedAmfId = amf->ctxId;
 }
-
-
 
 NgapUeContext *NgapTask::findUeContext(int ctxId)
 {
@@ -125,14 +123,6 @@ NgapUeContext *NgapTask::findUeByNgapIdPair(int amfCtxId, const NgapIdPair &idPa
         return nullptr;
     }
 
-    if (ue->amfUeNgapId == -1) {
-        ue->amfUeNgapId = amfId.value();            // premier attach
-    } else if (ue->amfUeNgapId != amfId.value()) {
-        m_logger->warn("AMF-UE-ID changed %ld -> %ld (handover)", 
-                       ue->amfUeNgapId, amfId.value());
-        ue->amfUeNgapId = amfId.value();            // ← on l’accepte
-    }
-        
     return ue;
 }
 

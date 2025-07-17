@@ -18,7 +18,7 @@
 #include <utils/constants.hpp>
 #include <utils/libc_error.hpp>
 
-#include <gnb/ngap/task.hpp>   // <— pour NgapTask et findUeContext
+#include <gnb/ngap/task.hpp> // <— for NgapTask & findUeContext
 
 static constexpr const int BUFFER_SIZE = 16384;
 
@@ -44,7 +44,8 @@ namespace nr::gnb
 {
 
 RlsUdpTask::RlsUdpTask(TaskBase *base, uint64_t sti, Vector3 phyLocation)
-    : m_base(base), m_server{}, m_ctlTask{}, m_sti{sti}, m_phyLocation{phyLocation}, m_lastLoop{}, m_stiToUe{}, m_ueMap{}, m_newIdCounter{}
+    : m_server{}, m_ctlTask{}, m_sti{sti}, m_phyLocation{phyLocation}, m_lastLoop{}, m_stiToUe{},
+      m_ueMap{}, m_newIdCounter{}, m_base(base)
 {
     m_logger = base->logBase->makeUniqueLogger("rls-udp");
 
@@ -92,72 +93,21 @@ void RlsUdpTask::onQuit()
     delete m_server;
 }
 
-void RlsUdpTask::updateStiToUe(uint64_t sti, int ueId)
-{
-    m_logger->debug("Remapping STI %llu → UE[%d] (handover)", sti, ueId);
-    m_stiToUe[sti] = ueId;
-}
-
-
-
-int RlsUdpTask::getUeIdBySti(uint64_t sti) const
-{
-    auto it = m_stiToUe.find(sti);
-    return it != m_stiToUe.end() ? it->second : -1;
-}
-
-std::optional<uint64_t> RlsUdpTask::getStiByUeId(int ueId) const
-{
-    auto it = m_ueMap.find(ueId);
-    if (it != m_ueMap.end()) {
-        return it->second.sti;
-    }
-    return std::nullopt;
-}
-
-void RlsUdpTask::setHandoverInProgress(bool active) {
-    m_handoverInProgress = active;
-}
-
-void RlsUdpTask::clearStiMappingForUe(int ueId) {
-    // Supprime toute entrée sti→ueId
-    for (auto it = m_stiToUe.begin(); it != m_stiToUe.end(); ) {
-        if (it->second == ueId) it = m_stiToUe.erase(it);
-        else ++it;
-    }
-    // Supprime l’info UE (adresse, etc.)
-    m_ueMap.erase(ueId);
-}
-
 int RlsUdpTask::reserveNewUeId()
 {
-    return m_newIdCounter;  
+    return m_newIdCounter;
 }
 
 void RlsUdpTask::receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::RlsMessage> &&msg)
 {
     if (msg->msgType == rls::EMessageType::HEARTBEAT)
-    {   
-        int64_t now = utils::CurrentTimeMillis();
+    {
         int dbm = EstimateSimulatedDbm(m_phyLocation, ((const rls::RlsHeartBeat &)*msg).simPos);
         if (dbm < MIN_ALLOWED_DBM)
         {
             // if the simulated signal strength is such low, then ignore this message
             return;
         }
-
-        m_logger->info("[HB] t=%lld  sti=%llu  dbm=%d  stiKnown=%d  hoPend=%d  mapSize=%zu",
-            now,
-            msg->sti,
-            dbm,
-            m_stiToUe.count(msg->sti) ? 1 : 0,
-            /* y-a-t-il au moins un UE handoverPending ? */
-            ([&]{
-                for (auto &[_, ctx] : m_base->ngapTask->getAllUeContexts())
-                    if (ctx && ctx->handoverPending) return 1;
-                return 0;
-            })(),
-            m_stiToUe.size());
         if (m_stiToUe.count(msg->sti))
         {
             int ueId = m_stiToUe[msg->sti];
@@ -168,26 +118,21 @@ void RlsUdpTask::receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::Rls
         {
             int ueId = ++m_newIdCounter;
 
-
             m_stiToUe[msg->sti] = ueId;
             m_ueMap[ueId].address = addr;
             m_ueMap[ueId].lastSeen = utils::CurrentTimeMillis();
-
 
             auto w = std::make_unique<NmGnbRlsToRls>(NmGnbRlsToRls::SIGNAL_DETECTED);
             w->ueId = ueId;
             m_ctlTask->push(std::move(w));
         }
 
-
         rls::RlsHeartBeatAck ack{m_sti};
         ack.dbm = dbm;
-
 
         sendRlsPdu(addr, ack);
         return;
     }
-
 
     if (!m_stiToUe.count(msg->sti))
     {
@@ -195,13 +140,11 @@ void RlsUdpTask::receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::Rls
         return;
     }
 
-
     auto w = std::make_unique<NmGnbRlsToRls>(NmGnbRlsToRls::RECEIVE_RLS_MESSAGE);
     w->ueId = m_stiToUe[msg->sti];
     w->msg = std::move(msg);
     m_ctlTask->push(std::move(w));
 }
-
 
 void RlsUdpTask::sendRlsPdu(const InetAddress &addr, const rls::RlsMessage &msg)
 {
@@ -261,7 +204,5 @@ void RlsUdpTask::send(int ueId, const rls::RlsMessage &msg)
 
     sendRlsPdu(m_ueMap[ueId].address, msg);
 }
-
-
 
 } // namespace nr::gnb

@@ -202,7 +202,6 @@ void RlsControlTask::handleUplinkDataDelivery(int psi, OctetString &&data)
     msg.pdu = std::move(data);
     msg.payload = static_cast<uint32_t>(psi);
     msg.pduId = 0;
-    m_logger->debug("[CTL] UL data via cell=%d", m_servingCell);
 
     m_udpTask->send(m_servingCell, msg);
 }

@@ -11,8 +11,8 @@
 #include "utils.hpp"
 
 #include <gnb/gtp/task.hpp>
-#include <gnb/rrc/task.hpp>
 #include <gnb/rls/task.hpp>
+#include <gnb/rrc/task.hpp>
 
 #include <asn/ngap/ASN_NGAP_AMF-UE-NGAP-ID.h>
 #include <asn/ngap/ASN_NGAP_AssociatedQosFlowItem.h>
@@ -252,11 +252,7 @@ void NgapTask::receiveContextRelease(int amfId, ASN_NGAP_UEContextReleaseCommand
     auto *response = asn::ngap::NewMessagePdu<ASN_NGAP_UEContextReleaseComplete>({});
     sendNgapUeAssociated(ue->ctxId, response);
 
-    
-
     deleteUeContext(ue->ctxId);
-    // m_base->rlsTask->udpTask()->clearStiMappingForUe(ueId);
-    m_base->rlsTask->udpTask()->setHandoverInProgress(false);
 }
 
 void NgapTask::receiveContextModification(int amfId, ASN_NGAP_UEContextModificationRequest *msg)

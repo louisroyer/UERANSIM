@@ -11,12 +11,12 @@
 #include <optional>
 #include <unordered_map>
 
+#include <asn/ngap/ASN_NGAP_PDUSessionResourceToBeSwitchedDLList.h>
 #include <gnb/nts.hpp>
 #include <gnb/types.hpp>
 #include <lib/app/monitor.hpp>
 #include <utils/logger.hpp>
 #include <utils/nts.hpp>
-#include <asn/ngap/ASN_NGAP_PDUSessionResourceToBeSwitchedDLList.h>
 extern "C"
 {
     struct ASN_NGAP_NGAP_PDU;
@@ -38,8 +38,6 @@ extern "C"
     struct ASN_NGAP_HandoverPreparationFailure;
     struct ASN_NGAP_HandoverRequest;
     struct ASN_NGAP_HandoverCommand;
-    struct ASN_NGAP_PathSwitchRequestAcknowledge;    
-    struct ASN_NGAP_PathSwitchRequestFailure;
 }
 
 namespace nr::gnb
@@ -67,15 +65,6 @@ class NgapTask : public NtsTask
   public:
     explicit NgapTask(TaskBase *base);
     ~NgapTask() override = default;
-    NgapUeContext* getUeContext(int ueId)
-    {
-        return findUeContext(ueId);
-    }
-    // Permet d'accéder à tous les contextes UE connus
-    const std::unordered_map<int, NgapUeContext*> &getAllUeContexts() const {
-      return m_ueCtx;
-    }
-
 
   protected:
     void onStart() override;
@@ -93,7 +82,6 @@ class NgapTask : public NtsTask
     NgapUeContext *findUeByNgapIdPair(int amfCtxId, const NgapIdPair &idPair);
     void deleteUeContext(int ueId);
     void deleteAmfContext(int amfId);
-
 
     /* Interface management */
     void handleAssociationSetup(int amfId, int ascId, int inCount, int outCount);
@@ -142,20 +130,12 @@ class NgapTask : public NtsTask
     void receivePaging(int amfId, ASN_NGAP_Paging *msg);
 
     /* UE Handover management */
-      void sendHandoverRequired(int ueId, int gnbTargetId);
-      void receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg);
-      void receiveHandoverCommand(int amfId, ASN_NGAP_HandoverCommand *msg);
-      void handleHandoverConfirm(int ueId);
-      void sendHandoverNotify(int ueId);
-      void sendPathSwitchRequest(int ueId);                     //  <-- AJOUT
-      void handlePathSwitchRequestAcknowledge(int amfId,        //  <-- AJOUT
-                                              ASN_NGAP_PathSwitchRequestAcknowledge *msg);
-
-      void receiveHandoverPreparationFailure(ASN_NGAP_HandoverPreparationFailure *msg);
-      void receivePathSwitchRequestFailure();
-      void buildPduSessionSwitchedList(
-        NgapUeContext* ueCtx,
-        ASN_NGAP_PDUSessionResourceToBeSwitchedDLList_t* list);
+    void sendHandoverRequired(int ueId, int gnbTargetId);
+    void receiveHandoverRequest(int amfId, ASN_NGAP_HandoverRequest *msg);
+    void receiveHandoverCommand(int amfId, ASN_NGAP_HandoverCommand *msg);
+    void handleHandoverConfirm(int ueId);
+    void sendHandoverNotify(int ueId);
+    void receiveHandoverPreparationFailure(ASN_NGAP_HandoverPreparationFailure *msg);
 };
 
 } // namespace nr::gnb

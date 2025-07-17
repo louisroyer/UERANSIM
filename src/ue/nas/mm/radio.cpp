@@ -216,11 +216,7 @@ void NasMm::handleRrcConnectionRelease()
 
 void NasMm::handleRrcHandoverCommand()
 {
-    //TODO
-    switchCmState(ECmState::CM_IDLE);
-    switchMmState(EMmSubState::MM_REGISTERED_UPDATE_NEEDED);
-    mobilityUpdatingRequired(ERegUpdateCause::EMERGENCY_CASE);
-    //initialRegistrationRequired(EInitialRegCause::DUE_TO_DEREGISTRATION);
+    // TODO : check if the TAC changed, if thats the case, then we need to perform a registration update
 }
 
 void NasMm::handleRrcEstablishmentFailure()

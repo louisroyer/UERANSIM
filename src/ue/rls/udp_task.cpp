@@ -15,18 +15,13 @@
 #include <ue/nts.hpp>
 #include <utils/common.hpp>
 #include <utils/constants.hpp>
-#include <arpa/inet.h>     // Pour inet_ntop
-#include <netinet/in.h>    // Pour sockaddr_in / sockaddr_in6
-#include <cstring>         // Pour memset éventuellement
-
 
 static constexpr const int BUFFER_SIZE = 16384;
 static constexpr const int LOOP_PERIOD = 1000;
 static constexpr const int RECEIVE_TIMEOUT = 200;
 static constexpr const int HEARTBEAT_THRESHOLD = 2000; // (LOOP_PERIOD + RECEIVE_TIMEOUT)'dan büyük olmalı
-
-
-
+static bool firstWindow = true;                        // for the first heartbeat sent
+static uint64_t firstWindowStart = 0;                  // for the first heartbeat sent
 
 namespace nr::ue
 {
@@ -90,12 +85,6 @@ void RlsUdpTask::send(int cellId, const rls::RlsMessage &msg)
     if (m_cellIdToSti.count(cellId))
     {
         auto sti = m_cellIdToSti[cellId];
-        // LOG IP SOURCE
-        char ipStr[INET6_ADDRSTRLEN] = {};
-        auto *sockaddr6 = reinterpret_cast<const sockaddr_in6 *>(m_cells[sti].address.getSockAddr());
-        inet_ntop(AF_INET6, &(sockaddr6->sin6_addr), ipStr, sizeof(ipStr));
-        m_logger->debug("Sending Message to cellId[%d] sti[%lu] ip[%s]", cellId, sti, ipStr);
-        // FIN LOG IP SOURCE
         sendRlsPdu(m_cells[sti].address, msg);
     }
 }
@@ -104,25 +93,7 @@ void RlsUdpTask::receiveRlsPdu(const InetAddress &addr, std::unique_ptr<rls::Rls
 {
     if (msg->msgType == rls::EMessageType::HEARTBEAT_ACK)
     {
-         // === LOG IP SOURCE ===
-        // char ipStr[INET6_ADDRSTRLEN] = {};
-        // const sockaddr *sa = addr.getSockAddr();
 
-        // if (sa->sa_family == AF_INET)
-        // {
-        //     inet_ntop(AF_INET, &(((sockaddr_in *)sa)->sin_addr), ipStr, sizeof(ipStr));
-        // }
-        // else if (sa->sa_family == AF_INET6)
-        // {
-        //     inet_ntop(AF_INET6, &(((sockaddr_in6 *)sa)->sin6_addr), ipStr, sizeof(ipStr));
-        // }
-
-        // m_logger->info("Heartbeat reçu de {%s\n}", ipStr);
-
-        // m_logger->info("HEARTBEAT_ACK received avec sti [%lu], dbm [%d]", msg->sti, ((const rls::RlsHeartBeatAck &)*msg).dbm);
-        
-        
-        
         if (!m_cells.count(msg->sti))
         {
             m_cells[msg->sti].cellId = ++m_cellIdCounter;
@@ -176,8 +147,6 @@ void RlsUdpTask::onSignalChangeOrLost(int cellId)
 void RlsUdpTask::heartbeatCycle(uint64_t time, const Vector3 &simPos)
 {
     std::set<std::pair<uint64_t, int>> toRemove;
-    static bool     firstWindow      = true;
-    static uint64_t firstWindowStart = 0;
 
     for (auto &cell : m_cells)
     {
@@ -192,22 +161,23 @@ void RlsUdpTask::heartbeatCycle(uint64_t time, const Vector3 &simPos)
     }
     for (auto cell : toRemove)
         onSignalChangeOrLost(cell.second);
-    
-    if (firstWindow && !m_searchSpace.empty()) {
-        if (firstWindowStart == 0)     // premier passage
-            firstWindowStart = time;   // mémorise le début
 
-        // HB uniquement vers le tout premier gNB
-        rls::RlsHeartBeat hb{m_shCtx->sti}; 
+    if (firstWindow && !m_searchSpace.empty())
+    {
+        if (firstWindowStart == 0) // first time sending heartbeat
+            firstWindowStart = time;
+
+        // HB only to the first gNB
+        rls::RlsHeartBeat hb{m_shCtx->sti};
         hb.simPos = simPos;
         sendRlsPdu(m_searchSpace.front(), hb);
 
         if (time - firstWindowStart >= 500)
-            firstWindow = false;       // fenêtre terminée
+            firstWindow = false; // window is closed
     }
-    else 
+    else
     {
-        // diffusion normale à tous les gNB
+        // normal diffusion
         for (auto &addr : m_searchSpace)
         {
             rls::RlsHeartBeat msg{m_shCtx->sti};
@@ -215,17 +185,6 @@ void RlsUdpTask::heartbeatCycle(uint64_t time, const Vector3 &simPos)
             sendRlsPdu(addr, msg);
         }
     }
-    
-    // if (!m_searchSpace.empty())
-    // {
-    // rls::RlsHeartBeat msg{m_shCtx->sti};
-    // msg.simPos = simPos;
-    // sendRlsPdu(m_searchSpace[0], msg);  // uniquement le premier gNB
-    // }   
-    // else
-    // {
-    //     m_logger->err("No search space found");
-    // }
 }
 
 void RlsUdpTask::initialize(NtsTask *ctlTask)

@@ -8,14 +8,13 @@
 
 #include "task.hpp"
 
+#include <asn/ngap/ASN_NGAP_QosFlowSetupRequestItem.h>
 #include <gnb/gtp/proto.hpp>
 #include <gnb/rls/task.hpp>
+#include <gnb/types.hpp>
+#include <utils/common.hpp>
 #include <utils/constants.hpp>
 #include <utils/libc_error.hpp>
-#include <utils/common.hpp>
-#include <gnb/types.hpp>
-
-#include <asn/ngap/ASN_NGAP_QosFlowSetupRequestItem.h>
 
 namespace nr::gnb
 {
@@ -112,54 +111,47 @@ void GtpTask::handleUeContextUpdate(const GtpUeContextUpdate &msg)
 
 void GtpTask::handleSessionCreate(PduSessionResource *session)
 {
-    if (!m_ueContexts.count(session->ueId)) {
+    if (!m_ueContexts.count(session->ueId))
+    {
         m_logger->err("PDU session resource could not be created, "
-                      "UE context with ID[%d] not found", session->ueId);
+                      "UE context with ID[%d] not found",
+                      session->ueId);
         delete session;
         return;
     }
 
     uint64_t sessionInd = MakeSessionResInd(session->ueId, session->psi);
 
-    /* ------------------------------------------------------------------
-     * → la session existe déjà : on garde l’objet existant mais
-     *    on remplace son tunnel downlink et on ré-indexe le TEID
-     * ------------------------------------------------------------------ */
+    // Check if session already exists
     auto it = m_pduSessions.find(sessionInd);
-    if (it != m_pduSessions.end()) {
+    if (it != m_pduSessions.end())
+    {
         auto &dstTunnel = it->second->downTunnel;
 
         uint32_t oldTeid = dstTunnel.teid;
         uint32_t newTeid = session->downTunnel.teid;
 
-        /* --- mise à jour du tunnel down-link existant --- */
-        dstTunnel.teid    = newTeid;
-        /* move pour éviter la copie interdite d’OctetString */
-        dstTunnel.address = std::move(session->downTunnel.address);
+        // Update existing DL tunnel
+        dstTunnel.teid = newTeid;
+        dstTunnel.address = std::move(session->downTunnel.address); // move to avoid copy
 
-    
         m_sessionTree.remove(sessionInd, oldTeid);
         m_sessionTree.insert(sessionInd, newTeid);
 
-        m_logger->warn("PDU session [%016llx] déjà existante – "
-                       "TEID DL remplacé %u → %u",
+        m_logger->warn("PDU session [%016llx] already exists – "
+                       "TEID DL replaced %u → %u",
                        sessionInd, oldTeid, newTeid);
 
-        delete session;          // on n’utilise pas le bloc fraîchement
-        return;                  // alloué : plus de « already exists »
+        delete session;
+        return;
     }
 
-    /* ---------- chemin normal : création ---------- */
+    // New session
     m_pduSessions[sessionInd].reset(session);
     m_sessionTree.insert(sessionInd, session->downTunnel.teid);
-
     updateAmbrForUe(session->ueId);
     updateAmbrForSession(sessionInd);
-
-    m_logger->debug("PDU session [%016llx] créée, TEID DL=%u",
-                    sessionInd, session->downTunnel.teid);
 }
-
 
 void GtpTask::handleSessionRelease(int ueId, int psi)
 {
@@ -319,42 +311,6 @@ void GtpTask::updateAmbrForSession(uint64_t pduSession)
     m_rateLimiter->updateSessionUplinkLimit(pduSession, sess->sessionAmbr.ulAmbr);
     m_rateLimiter->updateSessionDownlinkLimit(pduSession, sess->sessionAmbr.dlAmbr);
 }
-
-
-PduSessionResource *GtpTask::findPduResource(int ueId, int psi) const
-{
-    
-    // uint64_t key = (static_cast<uint64_t>(ueId) << 8) | (psi & 0xFF);
-    uint64_t key = (static_cast<uint64_t>(ueId) << 32) | static_cast<uint32_t>(psi);
-    m_logger->debug("Looking up session key=0x%016llx", key);
-    auto it = m_pduSessions.find(key);
-    if (it == m_pduSessions.end())
-        return nullptr;
-    else
-        m_logger->debug("Found session");
-    return it->second.get();   
-}
-
-
-void GtpTask::switchDownlinkTeid(int ueId, int psi,
-    uint32_t newTeid, OctetString &newAddr)
-{
-    /* 1) retrouver le contexte UE puis la ressource PSI               */
-    auto itCtx = m_ueContexts.find(ueId);
-    if (itCtx == m_ueContexts.end())
-    return;
-
-    for (auto &kv : itCtx->second->pduSessions) {     // kv : pair<const int, unique_ptr<…>>
-        auto &res = *kv.second;                      // PduSessionResource&
-        if (res.psi == psi) {
-            res.downTunnel.teid    = newTeid;
-            res.downTunnel.address = std::move(newAddr);
-            break;
-        }
-    }
-    
-}
-
 
 
 } // namespace nr::gnb

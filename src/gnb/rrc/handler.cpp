@@ -24,8 +24,8 @@
 #include <asn/rrc/ASN_RRC_Paging.h>
 #include <asn/rrc/ASN_RRC_PagingRecord.h>
 #include <asn/rrc/ASN_RRC_PagingRecordList.h>
-#include <asn/rrc/ASN_RRC_RRCReconfiguration.h>
 #include <asn/rrc/ASN_RRC_RRCReconfiguration-IEs.h>
+#include <asn/rrc/ASN_RRC_RRCReconfiguration.h>
 #include <asn/rrc/ASN_RRC_RRCRelease-IEs.h>
 #include <asn/rrc/ASN_RRC_RRCRelease.h>
 #include <asn/rrc/ASN_RRC_RRCSetup-IEs.h>
@@ -139,7 +139,7 @@ void GnbRrcTask::handlePaging(const asn::Unique<ASN_NGAP_FiveG_S_TMSI> &tmsi,
 
 void GnbRrcTask::handleHandoverCommand(int ueId, const OctetString &cellIdOctets)
 {
-    
+
     m_logger->debug("Sending RRC Handover Command for UE[%d]", ueId);
 
     auto *pdu = asn::New<ASN_RRC_DL_DCCH_Message>();
@@ -153,18 +153,16 @@ void GnbRrcTask::handleHandoverCommand(int ueId, const OctetString &cellIdOctets
     rrc->criticalExtensions.choice.rrcReconfiguration = asn::New<ASN_RRC_RRCReconfiguration_IEs>();
     rrc->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup = asn::New<OCTET_STRING>();
 
-    // On injecte simplement le buffer donné en paramètre
     asn::SetOctetString(*(rrc->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup), cellIdOctets);
 
     if (cellIdOctets.length() == 0)
     {
         m_logger->warn("secondaryCellGroup is empty! CellIdOctets length = 0");
-    }   
+    }
 
     sendRrcMessage(ueId, pdu);
     asn::Free(asn_DEF_ASN_RRC_DL_DCCH_Message, pdu);
 }
-
 
 void GnbRrcTask::receiveRrcHandoverConfirm(int ueId, const ASN_RRC_RRCReconfigurationComplete &msg)
 {

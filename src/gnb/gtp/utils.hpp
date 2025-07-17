@@ -21,10 +21,7 @@ inline uint64_t MakeSessionResInd(int ueId, int psi)
 {
     return (static_cast<int64_t>(ueId) << 32LL) | static_cast<int64_t>(psi);
 }
-inline uint64_t MakeSessionKey(int ueId, int psi)
-{
-    return (static_cast<uint64_t>(ueId) << 32) | static_cast<uint32_t>(psi);
-}
+
 inline int GetUeId(uint64_t sessionResInd)
 {
     return static_cast<int>((sessionResInd >> 32uLL) & 0xFFFFFFFFuLL);

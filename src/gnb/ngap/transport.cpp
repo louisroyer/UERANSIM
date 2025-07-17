@@ -17,6 +17,7 @@
 #include <lib/asn/utils.hpp>
 
 #include <asn/ngap/ASN_NGAP_AMF-UE-NGAP-ID.h>
+#include <asn/ngap/ASN_NGAP_HandoverCommand.h>
 #include <asn/ngap/ASN_NGAP_InitiatingMessage.h>
 #include <asn/ngap/ASN_NGAP_NGAP-PDU.h>
 #include <asn/ngap/ASN_NGAP_ProtocolIE-Field.h>
@@ -25,7 +26,6 @@
 #include <asn/ngap/ASN_NGAP_UnsuccessfulOutcome.h>
 #include <asn/ngap/ASN_NGAP_UserLocationInformation.h>
 #include <asn/ngap/ASN_NGAP_UserLocationInformationNR.h>
-#include <asn/ngap/ASN_NGAP_HandoverCommand.h>
 
 static e_ASN_NGAP_Criticality FindCriticalityOfUserIe(ASN_NGAP_NGAP_PDU *pdu, ASN_NGAP_ProtocolIE_ID_t ieId)
 {
@@ -326,9 +326,6 @@ void NgapTask::handleSctpMessage(int amfId, uint16_t stream, const UniqueBuffer 
             break;
         case ASN_NGAP_UnsuccessfulOutcome__value_PR_HandoverPreparationFailure:
             receiveHandoverPreparationFailure(&value.choice.HandoverPreparationFailure);
-            break;
-        case ASN_NGAP_UnsuccessfulOutcome__value_PR_PathSwitchRequestFailure :
-            receivePathSwitchRequestFailure();
             break;
         default:
             m_logger->err("Unhandled NGAP unsuccessful-outcome received (%d)", value.present);

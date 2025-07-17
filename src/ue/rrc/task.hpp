@@ -60,6 +60,7 @@ class UeRrcTask : public NtsTask
     /* Cell and PLMN related */
     std::unordered_map<int, UeCellDesc> m_cellDesc{};
     int64_t m_lastTimePlmnSearchFailureLogged{};
+    long m_lastTid{0};
 
     /* Procedure related */
     ERrcLastSetupRequest m_lastSetupReq{};

@@ -38,7 +38,6 @@ void UeRrcTask::performCellSelection()
 
     bool cellFound = false;
 
-
     if (m_base->shCtx.selectedPlmn.get().hasValue())
     {
         cellFound = lookForSuitableCell(cellInfo, report);
@@ -112,7 +111,6 @@ void UeRrcTask::performCellSelection()
     }
 }
 
-
 void UeRrcTask::performCellChange(int newCellId)
 {
 
@@ -135,7 +133,7 @@ void UeRrcTask::performCellChange(int newCellId)
     }
     m_logger->debug("Performing cell change from cell[%d] to cell[%d]", lastCell.cellId, newCellId);
 
-    ActiveCellInfo cellInfo={};
+    ActiveCellInfo cellInfo = {};
     auto handoverCell = m_cellDesc[newCellId];
     cellInfo.cellId = newCellId;
     cellInfo.plmn = handoverCell.sib1.plmn;
@@ -153,10 +151,10 @@ void UeRrcTask::performCellChange(int newCellId)
     m_base->shCtx.currentCell.set(cellInfo);
     m_logger->info("Selected new cell plmn[%s] tac[%d] category[%s]", ToJson(cellInfo.plmn).str().c_str(), cellInfo.tac,
                    ToJson(cellInfo.category).str().c_str());
-    m_logger->debug("Cell[%d] found",m_base->shCtx.currentCell.get<int>([](auto &item) { return item.cellId; }));
+    m_logger->debug("Cell[%d] found", m_base->shCtx.currentCell.get<int>([](auto &item) { return item.cellId; }));
 
     // notify other tasks
-    m_state = ERrcState::RRC_IDLE;
+    m_state = ERrcState::RRC_CONNECTED;
     auto w1 = std::make_unique<NmUeRrcToRls>(NmUeRrcToRls::ASSIGN_CURRENT_CELL);
     w1->cellId = newCellId;
     m_base->rlsTask->push(std::move(w1));
@@ -176,7 +174,8 @@ bool UeRrcTask::isSuitable(UeCellDesc &cell)
 {
     Plmn selectedPlmn = m_base->shCtx.selectedPlmn.get();
     Tai tai{cell.sib1.plmn, cell.sib1.tac};
-    if ((!cell.sib1.hasSib1 || !cell.mib.hasMib || cell.sib1.plmn != selectedPlmn || cell.mib.isBarred  || cell.sib1.isReserved) ||
+    if ((!cell.sib1.hasSib1 || !cell.mib.hasMib || cell.sib1.plmn != selectedPlmn || cell.mib.isBarred ||
+         cell.sib1.isReserved) ||
         (m_base->shCtx.forbiddenTaiRoaming.get<bool>([&tai](auto &item) {
             return std::any_of(item.begin(), item.end(), [&tai](auto &element) { return element == tai; });
         })) ||
@@ -191,16 +190,16 @@ bool UeRrcTask::isSuitable(UeCellDesc &cell)
 bool UeRrcTask::isAcceptable(UeCellDesc &cell)
 {
     Tai tai{cell.sib1.plmn, cell.sib1.tac};
-     if ((!cell.sib1.hasSib1 || !cell.mib.hasMib || cell.mib.isBarred || cell.sib1.isReserved) ||
+    if ((!cell.sib1.hasSib1 || !cell.mib.hasMib || cell.mib.isBarred || cell.sib1.isReserved) ||
 
         (m_base->shCtx.forbiddenTaiRoaming.get<bool>([&tai](auto &item) {
             return std::any_of(item.begin(), item.end(), [&tai](auto &element) { return element == tai; });
-        }))  ||
+        })) ||
 
         (m_base->shCtx.forbiddenTaiRps.get<bool>([&tai](auto &item) {
             return std::any_of(item.begin(), item.end(), [&tai](auto &element) { return element == tai; });
-         })))
-            return false;
+        })))
+        return false;
     return true;
 }
 
@@ -276,10 +275,9 @@ bool UeRrcTask::lookForSuitableCell(ActiveCellInfo &cellInfo, CellSelectionRepor
         auto &cellA = m_cellDesc[a];
         auto &cellB = m_cellDesc[b];
         if (cellA.dbm != cellB.dbm)
-            return cellA.dbm > cellB.dbm;  // plus fort dBm en premier
-        return a < b;             // fallback sur index (très arbitraire)
+            return cellA.dbm > cellB.dbm; // strongest dBm first
+        return a < b;                     // fallback on index (the smallest identifier is selected)
     });
-
 
     auto &selectedId = candidates[0];
     auto &selectedCell = m_cellDesc[selectedId];
@@ -355,10 +353,9 @@ bool UeRrcTask::lookForAcceptableCell(ActiveCellInfo &cellInfo, CellSelectionRep
         auto &cellA = m_cellDesc[a];
         auto &cellB = m_cellDesc[b];
         if (cellA.dbm != cellB.dbm)
-            return cellA.dbm > cellB.dbm;  // plus fort dBm en premier
-        return cellA.sib1.nci > cellB.sib1.nci;  // fallback sur index (le plus petit identifiant est sélectionné)
+            return cellA.dbm > cellB.dbm;       // strongest dBm first
+        return cellA.sib1.nci > cellB.sib1.nci; // fallback on index (the smallest identifier is selected)
     });
-
 
     // Then order candidates by PLMN priority if we have a selected PLMN
     Plmn selectedPlmn = m_base->shCtx.selectedPlmn.get();

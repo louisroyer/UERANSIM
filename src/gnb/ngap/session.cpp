@@ -235,12 +235,8 @@ std::optional<NgapCause> NgapTask::setupPduSessionResource(NgapUeContext *ue, Pd
 
     std::string gtpIp = m_base->config->gtpAdvertiseIp.value_or(m_base->config->gtpIp);
 
-
     resource->downTunnel.address = utils::IpToOctetString(gtpIp);
-   // debug : on vérifie la taille 
-    m_logger->debug("GTP tunnel address length: %zu octets",resource->downTunnel.address.length());
     resource->downTunnel.teid = ++m_downlinkTeidCounter;
-    m_logger->debug("GTP tunnel TEID: %u", resource->downTunnel.teid);
 
     auto w = std::make_unique<NmGnbNgapToGtp>(NmGnbNgapToGtp::SESSION_CREATE);
     w->resource = resource;
@@ -313,8 +309,6 @@ void NgapTask::receiveSessionResourceReleaseCommand(int amfId, ASN_NGAP_PDUSessi
 
     auto *respPdu = asn::ngap::NewMessagePdu<ASN_NGAP_PDUSessionResourceReleaseResponse>({ieResp});
     sendNgapUeAssociated(ue->ctxId, respPdu);
-
-    m_logger->info("PDU session resource(s) released for UE[%d] count[%d]", ue->ctxId, static_cast<int>(psIds.size()));
 }
 
 } // namespace nr::gnb
