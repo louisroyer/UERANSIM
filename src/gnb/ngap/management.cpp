@@ -122,6 +122,9 @@ NgapUeContext *NgapTask::findUeByNgapIdPair(int amfCtxId, const NgapIdPair &idPa
         sendErrorIndication(amfCtxId, NgapCause::RadioNetwork_unknown_local_UE_NGAP_ID);
         return nullptr;
     }
+    if (ue->amfUeNgapId == -1) {
+        ue->amfUeNgapId = amfId.value();
+    }
 
     return ue;
 }
